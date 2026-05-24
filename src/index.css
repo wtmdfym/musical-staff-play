@@ -1,0 +1,72 @@
+@font-face {
+  font-family: 'Leland';
+  src: url('./assets/Leland-0.80/Leland.otf') format('opentype');
+}
+
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #ffffff;
+  --bg-alt: #f8f7fa;
+  --border: #e5e4e7;
+  --code-bg: #f4f3ec;
+  --accent: #7c3aed;
+  --accent-bg: rgba(124, 58, 237, 0.08);
+  --accent-border: rgba(124, 58, 237, 0.3);
+  --success: #16a34a;
+  --success-bg: rgba(22, 163, 74, 0.1);
+  --warning: #ca8a04;
+  --danger: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.1);
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 14px/1.4 var(--sans);
+  color-scheme: light dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #13141a;
+    --bg-alt: #1a1b23;
+    --border: #2a2b35;
+    --code-bg: #1c1d26;
+    --accent: #c084fc;
+    --accent-bg: rgba(192, 132, 252, 0.12);
+    --accent-border: rgba(192, 132, 252, 0.35);
+    --success: #4ade80;
+    --success-bg: rgba(74, 222, 128, 0.12);
+    --warning: #facc15;
+    --danger: #f87171;
+    --danger-bg: rgba(248, 113, 113, 0.12);
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100svh;
+}
+
+h1, h2 {
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--text-h);
+}
