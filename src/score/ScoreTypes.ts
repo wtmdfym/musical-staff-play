@@ -5,13 +5,18 @@ export interface ScoreEvent {
   measureIndex: number
   isRest: boolean
   voice: number
+  staffIndex: number
+}
+
+export interface StaffData {
+  clef: 'treble' | 'bass'
+  events: ScoreEvent[]
 }
 
 export interface MeasureEvent {
   index: number
-  events: ScoreEvent[]
+  staves: StaffData[]
   timeSignature: [number, number]
-  clef: 'treble' | 'bass'
   startBeat: number
   duration: number
 }
@@ -32,12 +37,14 @@ export interface ScoreData {
 export interface HighlightColumn {
   beat: number
   staff: 'treble' | 'bass'
-  notes: { pitch: number; time: number; duration: number; measureIndex: number; noteIndex: number }[]
+  notes: { pitch: number; time: number; duration: number; measureIndex: number; noteIndex: number; staffIndex: number }[]
   isPlayable: boolean
   grade?: JudgmentGrade
 }
 
 export type DisplayMode = 'page' | 'scroll'
+
+export type HighlightMode = 'color' | 'box'
 
 export type PlayState = 'stopped' | 'playing' | 'paused'
 
@@ -55,7 +62,9 @@ export interface PracticeState {
   showHeatmap: boolean
   highlightMeasure: number
   measureErrors: Record<number, number>
+  bpmOverrideEnabled: boolean
   bpmOverride: number
+  speedRatio: number
   measuresWindow: number
   emptyMeasures: number
   totalPages: number
@@ -72,6 +81,7 @@ export interface PracticeState {
   verovioNoteSpacing: number
   midiEnabled: boolean
   midiDeviceId: string
+  highlightMode: HighlightMode
   rawDocument: string | null
   documentFormat: 'musicxml' | 'mei' | null
 }
@@ -95,6 +105,7 @@ export interface JudgmentResult {
   beat: number
   measureIndex: number
   noteIndex: number
+  staffIndex: number
 }
 
 export type PracticeAction =
@@ -116,6 +127,8 @@ export type PracticeAction =
   | { type: 'JUDGE'; result: JudgmentResult }
   | { type: 'RESET_STATS' }
   | { type: 'SET_BPM'; bpm: number }
+  | { type: 'SET_BPM_OVERRIDE_ENABLED'; enabled: boolean }
+  | { type: 'SET_SPEED_RATIO'; ratio: number }
   | { type: 'SET_MEASURES_WINDOW'; count: number }
   | { type: 'SET_EMPTY_MEASURES'; count: number }
   | { type: 'SET_TOTAL_PAGES'; total: number }
@@ -133,3 +146,4 @@ export type PracticeAction =
   | { type: 'CLEAR_JUDGED_NOTES' }
   | { type: 'SET_MIDI_ENABLED'; enabled: boolean }
   | { type: 'SET_MIDI_DEVICE_ID'; deviceId: string }
+  | { type: 'SET_HIGHLIGHT_MODE'; mode: HighlightMode }

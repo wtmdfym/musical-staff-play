@@ -1,110 +1,60 @@
-import type { ScoreData, ScoreEvent } from '../score/ScoreTypes'
 import type { JudgmentGrade, JudgmentResult } from '../score/ScoreTypes'
-import { TempoClock } from './TempoClock'
+import type { EventRegistry, EventRegistryEntry } from '../core/EventRegistry'
 
 const PERFECT_WINDOW = 0.04
 const GREAT_WINDOW = 0.08
 const GOOD_WINDOW = 0.12
 const MISS_WINDOW = 0.2
 
-interface IndexedEvent {
-  event: ScoreEvent
-  id: number
-  timeSec: number
-  noteIndex: number
-}
-
 export class JudgmentEngine {
-  private _score: ScoreData | null = null
-  private _clock: TempoClock = new TempoClock()
-  private _judged: Set<number> = new Set()
+  private _registry: EventRegistry | null = null
   private _onJudgment: ((result: JudgmentResult) => void) | null = null
-  private _eventIdCounter = 0
-  private _eventIdMap: WeakMap<ScoreEvent, number> = new WeakMap()
-  private _indexedEvents: IndexedEvent[] = []
 
-  set score(s: ScoreData | null) {
-    this._score = s
-    this.reset()
-  }
-
-  setClock(clock: TempoClock) {
-    this._clock = clock
-    this.buildIndex()
+  setRegistry(registry: EventRegistry | null): void {
+    this._registry = registry
   }
 
   set onJudgment(cb: ((result: JudgmentResult) => void) | null) {
     this._onJudgment = cb
   }
 
-  private getEventId(evt: ScoreEvent): number {
-    let id = this._eventIdMap.get(evt)
-    if (id === undefined) {
-      id = this._eventIdCounter++
-      this._eventIdMap.set(evt, id)
-    }
-    return id
-  }
-
-  private buildIndex(): void {
-    const score = this._score
-    if (!score) {
-      this._indexedEvents = []
-      return
-    }
-    const clock = this._clock
-    const events: IndexedEvent[] = []
-    for (const measure of score.measures) {
-      for (let ni = 0; ni < measure.events.length; ni++) {
-        const event = measure.events[ni]
-        if (event.isRest) continue
-        const id = this.getEventId(event)
-        events.push({
-          event,
-          id,
-          timeSec: clock.beatToTime(event.time),
-          noteIndex: ni,
-        })
-      }
-    }
-    events.sort((a, b) => a.timeSec - b.timeSec)
-    this._indexedEvents = events
-  }
-
   /** Single-pitch judgment (legacy) */
   onInput(pitch: number, currentTime: number): JudgmentResult | null {
-    if (this._indexedEvents.length === 0) return null
+    const registry = this._registry
+    if (!registry || registry.all.length === 0) return null
 
-    let best: { event: ScoreEvent; timingDelta: number } | null = null
+    let best: { entry: EventRegistryEntry; timingDelta: number } | null = null
 
-    for (const ie of this._indexedEvents) {
-      if (this._judged.has(ie.id)) continue
+    for (const entry of registry.all) {
+      const key = `${entry.measureIndex}:${entry.staffIndex}:${entry.noteIndex}`
+      if (registry.isJudged(key)) continue
 
-      const delta = Math.abs(currentTime - ie.timeSec)
+      const delta = Math.abs(currentTime - entry.timeSec)
 
       if (delta <= GOOD_WINDOW) {
         if (!best || delta < best.timingDelta) {
-          best = { event: ie.event, timingDelta: delta }
+          best = { entry, timingDelta: delta }
         }
-      } else if (ie.timeSec - currentTime > GOOD_WINDOW) {
+      } else if (entry.timeSec - currentTime > GOOD_WINDOW) {
         break
       }
     }
 
     if (!best) return null
 
-    this._judged.add(this.getEventId(best.event))
+    const key = `${best.entry.measureIndex}:${best.entry.staffIndex}:${best.entry.noteIndex}`
+    registry.markJudged(key)
 
-    const bestNI = this._indexedEvents.find(ie => ie.event === best.event)?.noteIndex ?? -1
-    const grade = this.computeGrade(pitch, best.event.pitch, best.timingDelta)
+    const grade = this.computeGrade(pitch, best.entry.event.pitch, best.timingDelta)
     const result: JudgmentResult = {
       grade,
       pitch,
-      expectedPitch: best.event.pitch,
+      expectedPitch: best.entry.event.pitch,
       timingDelta: best.timingDelta,
-      beat: best.event.time,
-      measureIndex: best.event.measureIndex,
-      noteIndex: bestNI,
+      beat: best.entry.event.time,
+      measureIndex: best.entry.measureIndex,
+      noteIndex: best.entry.noteIndex,
+      staffIndex: best.entry.staffIndex,
     }
 
     this._onJudgment?.(result)
@@ -113,41 +63,44 @@ export class JudgmentEngine {
 
   /** Column-based judgment: matches against multiple expected pitches */
   onInputColumn(pitches: number[], currentTime: number): JudgmentResult[] {
-    if (this._indexedEvents.length === 0) return []
+    const registry = this._registry
+    if (!registry || registry.all.length === 0) return []
 
     const results: JudgmentResult[] = []
 
     for (const pitch of pitches) {
-      let best: { event: ScoreEvent; timingDelta: number } | null = null
+      let best: { entry: EventRegistryEntry; timingDelta: number } | null = null
 
-      for (const ie of this._indexedEvents) {
-        if (this._judged.has(ie.id)) continue
+      for (const entry of registry.all) {
+        const key = `${entry.measureIndex}:${entry.staffIndex}:${entry.noteIndex}`
+        if (registry.isJudged(key)) continue
 
-        const delta = Math.abs(currentTime - ie.timeSec)
+        const delta = Math.abs(currentTime - entry.timeSec)
 
         if (delta <= GOOD_WINDOW) {
           if (!best || delta < best.timingDelta) {
-            best = { event: ie.event, timingDelta: delta }
+            best = { entry, timingDelta: delta }
           }
-        } else if (ie.timeSec - currentTime > GOOD_WINDOW) {
+        } else if (entry.timeSec - currentTime > GOOD_WINDOW) {
           break
         }
       }
 
       if (!best) continue
 
-      this._judged.add(this.getEventId(best.event))
+      const key = `${best.entry.measureIndex}:${best.entry.staffIndex}:${best.entry.noteIndex}`
+      registry.markJudged(key)
 
-      const bestNI = this._indexedEvents.find(ie => ie.event === best.event)?.noteIndex ?? -1
-      const grade = this.computeGrade(pitch, best.event.pitch, best.timingDelta)
+      const grade = this.computeGrade(pitch, best.entry.event.pitch, best.timingDelta)
       results.push({
         grade,
         pitch,
-        expectedPitch: best.event.pitch,
+        expectedPitch: best.entry.event.pitch,
         timingDelta: best.timingDelta,
-        beat: best.event.time,
-        measureIndex: best.event.measureIndex,
-        noteIndex: bestNI,
+        beat: best.entry.event.time,
+        measureIndex: best.entry.measureIndex,
+        noteIndex: best.entry.noteIndex,
+        staffIndex: best.entry.staffIndex,
       })
     }
 
@@ -158,21 +111,24 @@ export class JudgmentEngine {
   }
 
   checkMissed(currentTime: number): void {
-    if (this._indexedEvents.length === 0) return
+    const registry = this._registry
+    if (!registry || registry.all.length === 0) return
 
-    for (const ie of this._indexedEvents) {
-      if (this._judged.has(ie.id)) continue
+    for (const entry of registry.all) {
+      const key = `${entry.measureIndex}:${entry.staffIndex}:${entry.noteIndex}`
+      if (registry.isJudged(key)) continue
 
-      if (currentTime > ie.timeSec + MISS_WINDOW) {
-        this._judged.add(ie.id)
+      if (currentTime > entry.timeSec + MISS_WINDOW) {
+        registry.markJudged(key)
         const result: JudgmentResult = {
           grade: 'miss',
           pitch: -1,
-          expectedPitch: ie.event.pitch,
-          timingDelta: currentTime - ie.timeSec,
-          beat: ie.event.time,
-          measureIndex: ie.event.measureIndex,
-          noteIndex: ie.noteIndex,
+          expectedPitch: entry.event.pitch,
+          timingDelta: currentTime - entry.timeSec,
+          beat: entry.event.time,
+          measureIndex: entry.measureIndex,
+          noteIndex: entry.noteIndex,
+          staffIndex: entry.staffIndex,
         }
         this._onJudgment?.(result)
       }
@@ -188,9 +144,6 @@ export class JudgmentEngine {
   }
 
   reset(): void {
-    this._judged.clear()
-    this._eventIdCounter = 0
-    this._eventIdMap = new WeakMap()
-    this.buildIndex()
+    this._registry?.resetJudgments()
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { usePractice } from '../context/usePractice'
-import { getGameLoop } from '../core/GameLoop'
+import { useFpsMonitor } from '../playback/useFpsMonitor'
 
 function grade(acc: number): string {
   if (acc >= 95) return 'S'
@@ -29,17 +29,7 @@ export default function StatsPanel() {
     prevComboRef.current = stats.combo
   }, [stats.combo])
 
-  const [logicFps, setLogicFps] = useState(60)
-  const [renderFps, setRenderFps] = useState(60)
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const gl = getGameLoop()
-      setLogicFps(gl.logicFpsActual)
-      setRenderFps(gl.renderFpsActual)
-    }, 500)
-    return () => clearInterval(interval)
-  }, [])
+  const { logicFps, renderFps } = useFpsMonitor()
 
   return (
     <div className={`stats-panel ${playState === 'playing' ? 'active' : ''}`}>

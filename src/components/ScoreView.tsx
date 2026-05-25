@@ -2,6 +2,7 @@ import { useRef, useEffect, useMemo, useState, memo } from "react"
 import { usePractice } from "../context/usePractice"
 import { getGameLoop } from "../core/GameLoop"
 import { getVerovioRenderer } from "../renderer/VerovioEngine"
+import type { PlaybackEventSink } from "../core/PlaybackEvents"
 
 const glInstance = getGameLoop()
 
@@ -61,16 +62,43 @@ export default function ScoreView() {
     verovioPageHeight,
     verovioStaffSpacing,
     verovioNoteSpacing,
+    bpmOverrideEnabled,
     bpmOverride,
+    speedRatio,
     logicFps,
     renderFps,
     totalPages,
+    highlightMode,
   } = state
 
   const [vrvReady, setVrvReady] = useState(() => getVerovioRenderer().isReady)
 
   useEffect(() => {
-    glInstance.init(dispatch, {
+    const eventSink: PlaybackEventSink = {
+      emit(event) {
+        switch (event.type) {
+          case 'playback-ended':
+            dispatch({ type: 'STOP' })
+            break
+          case 'scroll-offset-changed':
+            dispatch({ type: 'SET_SCROLL_OFFSET', offset: event.offset })
+            break
+          case 'page-advance-requested':
+            dispatch({ type: event.direction === 'next' ? 'NEXT_PAGE' : 'PREV_PAGE' })
+            break
+          case 'page-advanced':
+            dispatch({ type: 'SET_PAGE', page: event.page })
+            break
+          case 'total-pages-changed':
+            dispatch({ type: 'SET_TOTAL_PAGES', total: event.total })
+            break
+          case 'judgment-fired':
+            dispatch({ type: 'JUDGE', result: event.result })
+            break
+        }
+      }
+    }
+    glInstance.init(eventSink, {
       container: containerRef,
       svgWrap: svgWrapRef,
       playhead: playheadRef,
@@ -121,9 +149,12 @@ export default function ScoreView() {
       midiEnabled,
       midiDeviceId,
       currentPage,
+      bpmOverrideEnabled,
       bpmOverride,
+      speedRatio,
       logicFps,
       renderFps,
+      highlightMode,
     })
   })
 

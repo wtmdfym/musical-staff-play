@@ -19,7 +19,7 @@ export default function HeatmapView() {
 
   const measureRates: number[] = Array.from({ length: totalMeasures }, (_, i) => {
     const errors = state.measureErrors[i] || 0
-    const measureEvents = score.measures[i]?.events.filter((e) => !e.isRest).length || 0
+    const measureEvents = score.measures[i]?.staves.reduce((sum, s) => sum + s.events.filter((e) => !e.isRest).length, 0) || 0
     return measureEvents > 0 ? errors / measureEvents : 0
   })
 

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { usePractice } from '../context/usePractice'
 import { parseFromXml } from '../score/MusicxmlParser'
-import { parseMidi } from '../score/MidiParser'
+
 
 function getExt(name: string): string {
   const i = name.lastIndexOf('.')
@@ -61,16 +61,6 @@ export default function ScoreFileSelector() {
       }
       reader.onerror = () => setError('Failed to read file')
       reader.readAsArrayBuffer(file)
-    } else if (ext === '.mid' || ext === '.mdi') {
-      const reader = new FileReader()
-      reader.onload = () => {
-        try {
-          const score = parseMidi(reader.result as ArrayBuffer)
-          dispatch({ type: 'LOAD_SCORE', score, fileName: file.name })
-        } catch (err) { onErr(err) }
-      }
-      reader.onerror = () => setError('Failed to read file')
-      reader.readAsArrayBuffer(file)
     } else {
       const reader = new FileReader()
       reader.onload = () => {
@@ -93,7 +83,7 @@ export default function ScoreFileSelector() {
       <input
         ref={inputRef}
         type="file"
-        accept=".musicxml,.mxl,.mid,.mdi,.xml,.mei"
+        accept=".musicxml,.mxl,.xml"
         style={{ display: 'none' }}
         onChange={handleChange}
       />

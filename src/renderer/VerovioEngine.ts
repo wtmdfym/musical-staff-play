@@ -1,17 +1,12 @@
 import createVerovioModule from 'verovio/wasm'
 import { VerovioToolkit } from 'verovio/esm'
 
-export interface TimemapElement {
-  t: number
-  qst: number
-  x: number
-  y: number
-  id: string
-}
-
 export interface TimemapEntry {
-  page: number
-  elements: TimemapElement[]
+  on?: string[]
+  off?: string[]
+  qstamp: number
+  tempo?: number
+  tstamp: number
 }
 
 export interface VerovioLayoutOptions {
@@ -50,12 +45,10 @@ export class VerovioRenderer {
   private _pageCount = 0
   private _svgCache = new Map<number, string>()
   private _timemapCache: TimemapEntry[] | null = null
-  private _eventIdMap: Map<string, string> | null = null
 
   get isReady(): boolean { return this._toolkit !== null }
   get hasDocument(): boolean { return this._documentLoaded }
   get pageCount(): number { return this._documentLoaded ? this._pageCount : 0 }
-  get eventIdMap(): Map<string, string> | null { return this._eventIdMap }
 
   init(): Promise<void> {
     if (this._readyPromise) return this._readyPromise
@@ -72,7 +65,7 @@ export class VerovioRenderer {
     tk.resetXmlIdSeed(0)
     const ok = tk.loadData(data)
     if (!ok) return false
-    tk.setOptions({ svgAdditionalAttribute: ["note@pname", "note@oct"] })
+    tk.setOptions({ svgAdditionalAttribute: ["note@pname", "note@oct", "note@staff", "note@voice"] })
     this._documentLoaded = true
     this._clearCaches()
     this._pageCount = tk.getPageCount()
@@ -88,7 +81,7 @@ export class VerovioRenderer {
       pageHeight: opts.pageHeight,
       spacingStaff: opts.staffSpacing,
       spacingLinear: opts.noteSpacing,
-      svgAdditionalAttribute: ["note@pname", "note@oct"],
+      svgAdditionalAttribute: ["note@pname", "note@oct", "note@staff", "note@voice"],
     })
     this._clearCaches()
     tk.redoLayout({ resetCache: true })
@@ -121,13 +114,22 @@ export class VerovioRenderer {
     const raw = tk.renderToTimemap({ includeRests: false }) as unknown
     if (Array.isArray(raw)) {
       this._timemapCache = raw as TimemapEntry[]
-    } else if (raw && typeof raw === 'object') {
-      const obj = raw as Record<string, unknown>
-      this._timemapCache = (Array.isArray(obj.pages) ? obj.pages : Array.isArray(obj.elements) ? obj : []) as TimemapEntry[]
     } else {
       this._timemapCache = []
     }
     return this._timemapCache
+  }
+
+  buildNoteQstampMap(): Map<string, number> {
+    const map = new Map<string, number>()
+    for (const entry of this.getTimemap()) {
+      if (entry.on) {
+        for (const id of entry.on) {
+          map.set(id, entry.qstamp)
+        }
+      }
+    }
+    return map
   }
 
   renderToMIDI(): string {
@@ -163,65 +165,15 @@ export class VerovioRenderer {
     return this._toolkit.getElementAttr(xmlId)
   }
 
-  buildEventIdMap(flattenedEvents: { measureIndex: number; noteIndex: number; timeMs: number; pitch: number }[]): Map<string, string> {
+  getTimesForElement(xmlId: string): Record<string, number> | null {
     const tk = this._toolkit
-    if (!tk) return new Map()
-
-    const timemap = this.getTimemap()
-    if (!timemap.length) return new Map()
-
-    const allElements = timemap.filter(t => Array.isArray(t.elements)).flatMap(t => t.elements).sort((a, b) => a.t - b.t)
-    const map = new Map<string, string>()
-    let elemIdx = 0
-
-    for (let i = 0; i < flattenedEvents.length; i++) {
-      const timeGroup: typeof flattenedEvents = []
-      let j = i
-      while (j < flattenedEvents.length && Math.abs(flattenedEvents[j].timeMs - flattenedEvents[i].timeMs) < 5) {
-        timeGroup.push(flattenedEvents[j])
-        j++
-      }
-
-      const elemGroup: TimemapElement[] = []
-      while (elemIdx < allElements.length && allElements[elemIdx].t < flattenedEvents[i].timeMs - 5) {
-        elemIdx++
-      }
-      while (elemIdx < allElements.length && Math.abs(allElements[elemIdx].t - flattenedEvents[i].timeMs) < 5) {
-        elemGroup.push(allElements[elemIdx])
-        elemIdx++
-      }
-
-      if (timeGroup.length === 1 && elemGroup.length === 1) {
-        map.set(`${timeGroup[0].measureIndex}:${timeGroup[0].noteIndex}`, elemGroup[0].id)
-      } else if (timeGroup.length > 0 && elemGroup.length > 0) {
-        timeGroup.sort((a, b) => a.pitch - b.pitch)
-
-        const elemPitches: { id: string; pitch: number }[] = []
-        for (const elem of elemGroup) {
-          const attr = this.getElementAttr(elem.id)
-          const midi = midiFromPnameOct(attr.pname, attr.oct)
-          if (midi !== null) {
-            elemPitches.push({ id: elem.id, pitch: midi })
-          }
-        }
-        elemPitches.sort((a, b) => a.pitch - b.pitch)
-
-        for (let k = 0; k < Math.min(timeGroup.length, elemPitches.length); k++) {
-          map.set(`${timeGroup[k].measureIndex}:${timeGroup[k].noteIndex}`, elemPitches[k].id)
-        }
-      }
-
-      i = j - 1
-    }
-
-    this._eventIdMap = map
-    return map
+    if (!tk || !this._documentLoaded) return null
+    return tk.getTimesForElement(xmlId) as Record<string, number> | null
   }
 
   private _clearCaches(): void {
     this._svgCache.clear()
     this._timemapCache = null
-    this._eventIdMap = null
   }
 
   destroy(): void {

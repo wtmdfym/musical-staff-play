@@ -40,7 +40,9 @@ const initialState: PracticeState = {
   showHeatmap: false,
   highlightMeasure: -1,
   measureErrors: {},
+  bpmOverrideEnabled: false,
   bpmOverride: 0,
+  speedRatio: 1,
   measuresWindow: 4,
   emptyMeasures: 2,
   totalPages: 1,
@@ -57,6 +59,7 @@ const initialState: PracticeState = {
   verovioNoteSpacing: 0.25,
   midiEnabled: false,
   midiDeviceId: '',
+  highlightMode: 'color',
   rawDocument: null,
   documentFormat: null,
   ...persisted,
@@ -126,6 +129,10 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, stats: { perfect: 0, great: 0, good: 0, miss: 0, combo: 0, maxCombo: 0 }, measureErrors: {} }
     case 'SET_BPM':
       return { ...state, bpmOverride: Math.max(20, Math.min(300, action.bpm)) }
+    case 'SET_BPM_OVERRIDE_ENABLED':
+      return { ...state, bpmOverrideEnabled: action.enabled }
+    case 'SET_SPEED_RATIO':
+      return { ...state, speedRatio: Math.max(0.25, Math.min(4, action.ratio)) }
     case 'SET_MEASURES_WINDOW':
       return { ...state, measuresWindow: Math.max(2, Math.min(16, action.count)) }
     case 'SET_EMPTY_MEASURES':
@@ -160,6 +167,8 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, midiEnabled: action.enabled }
     case 'SET_MIDI_DEVICE_ID':
       return { ...state, midiDeviceId: action.deviceId }
+    case 'SET_HIGHLIGHT_MODE':
+      return { ...state, highlightMode: action.mode }
     default:
       return state
   }
@@ -167,10 +176,10 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
 
 const PERSISTED_KEYS: (keyof PracticeState)[] = [
   'zoom', 'playheadRatio', 'measuresWindow', 'emptyMeasures',
-  'bpmOverride', 'voiceColors', 'displayMode', 'highlightLeadBeats',
+  'bpmOverrideEnabled', 'bpmOverride', 'speedRatio', 'voiceColors', 'displayMode', 'highlightLeadBeats',
   'highlightRange', 'logicFps', 'renderFps',
   'verovioPageWidth', 'verovioPageHeight', 'verovioStaffSpacing', 'verovioNoteSpacing',
-  'midiEnabled', 'midiDeviceId',
+  'midiEnabled', 'midiDeviceId', 'highlightMode',
 ]
 
 export function PracticeProvider({ children }: { children: ReactNode }) {
@@ -192,10 +201,11 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     state.zoom, state.playheadRatio, state.measuresWindow, state.emptyMeasures,
-    state.bpmOverride, state.voiceColors, state.displayMode, state.highlightLeadBeats,
+    state.bpmOverrideEnabled, state.bpmOverride, state.speedRatio, state.voiceColors,
+    state.displayMode, state.highlightLeadBeats,
     state.highlightRange, state.logicFps, state.renderFps,
     state.verovioPageWidth, state.verovioPageHeight, state.verovioStaffSpacing, state.verovioNoteSpacing,
-    state.midiEnabled, state.midiDeviceId,
+    state.midiEnabled, state.midiDeviceId, state.highlightMode,
   ])
   return (
     <PracticeStateContext.Provider value={state}>

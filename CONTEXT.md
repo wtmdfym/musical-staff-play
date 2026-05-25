@@ -22,8 +22,12 @@ _Avoid_: note (ambiguous — a NoteEvent is a specific kind of Event)
 Multiple Events at the same onset time within a Measure. Rendered as stacked noteheads on the same stem.
 _Avoid_: group, cluster
 
+**Tie**:
+A curved line connecting two Events of the same pitch across a barline or beat boundary. Indicates the two notes should be played as one sustained note whose duration equals the sum of the tied durations. Not to be confused with a Slur (which connects notes of different pitches for phrasing).
+_Avoid_: slur, legato
+
 **Voice**:
-A polyphonic line within a Staff. Each Event belongs to exactly one Voice. Voices are numbered (0–7) and may be color-coded for visual distinction.
+A polyphonic line within a Staff. Each Event belongs to exactly one Voice. Voices are numbered 0–7 (labeled "Voice 1" through "Voice 8" in the UI) and may be color-coded for visual distinction. In Box Highlight mode, Events in different Voices at the same onset receive separate Highlight Boxes.
 _Avoid_: layer, part, track
 
 **Staff**:
@@ -43,6 +47,14 @@ _Avoid_: tick, step, unit
 **Tempo**:
 The speed of playback, expressed in beats per minute (BPM). A Tempo map defines how BPM changes over the course of the Score.
 _Avoid_: speed, rate
+
+**Tempo Override**:
+When enabled, replaces the Score's Tempo map with a fixed BPM value. When disabled, the Score's Tempo map is used as-is, scaled by the Speed Ratio.
+_Avoid_: fixed BPM, forced tempo
+
+**Speed Ratio**:
+A multiplier applied to the Score's Tempo map to speed up or slow down playback. `1.0` = original speed. Only active when Tempo Override is disabled.
+_Avoid_: playback rate, tempo scale
 
 **Playhead**:
 The visual cursor showing the current playback position. In scroll mode, a horizontal line at a configurable screen ratio. In page mode, a vertical line sweeping across the page.
@@ -77,8 +89,12 @@ Displays the entire Score as a continuous vertical strip. The Playhead is fixed 
 _Avoid_: continuous, rolling
 
 **Highlight**:
-Visual marking of upcoming Events using CSS fill color on the Verovio SVG. The next Column receives full-brightness highlight; subsequent Columns within the lead window receive dimmed preview highlighting.
+The visual indication of upcoming Columns that the user is expected to play next. Two modes: **Color Highlight** (CSS fill color on `<g class="note">` elements) and **Box Highlight** (SVG overlay `<rect>` elements wrapping note groups with tie extension). The next Column is shown at full intensity; subsequent Columns within the lead window appear dimmed.
 _Avoid_: mark, indicator, selection
+
+**Highlight Box**:
+A semi-transparent rounded rectangle rendered as an SVG overlay `<rect>` on top of the Verovio score, wrapping the bounding box of a note or chord group. Multiple notes at the same onset time and same Staff are merged into a single box. Notes at the same onset but different Voices receive separate boxes. If a note is connected by a Tie, the box extends to include the tied note.
+_Avoid_: rectangle, overlay, marker
 
 **Feedback**:
 Visual response shown after a Judgment. Includes both per-note styling on the Score SVG (via CSS data attributes) and optional center-screen floating text (combo streak text and grade indicators).
@@ -87,6 +103,20 @@ _Avoid_: notification, popup, alert
 **Zoom**:
 Uniform scaling of the rendered Score SVG. Applied as Verovio's `scale` option. Independent of page dimensions and staff spacing.
 _Avoid_: size, magnification
+
+### Architecture
+
+**ScoreEventIndex**:
+A flattened, sorted array of all non-rest Events in a Score. Built once per Score load and consumed by both the Judgment module and the Highlight module. Eliminates duplicated traversal logic.
+_Avoid_: flat events, event list
+
+**PlaybackEvent**:
+A domain event emitted by the core playback loop (e.g., `playback-ended`, `page-advanced`, `scroll-offset-changed`). Decouples the core engine from React state management.
+_Avoid_: action, dispatch
+
+**PlaybackEventSink**:
+The Interface that receives PlaybackEvents. The React adapter implements this seam to translate domain events into React dispatches. A test adapter can record events for headless testing.
+_Avoid_: callback, handler
 
 ## Flagged Ambiguities
 
@@ -101,4 +131,4 @@ _Avoid_: size, magnification
 > **Domain expert**: "The next Column of Events that hasn't been judged yet. After the Playhead passes it, the next unjudged Column becomes the active highlight."
 >
 > **Dev**: "How does Tempo override work with highlights?"
-> **Domain expert**: "The Score has an original Tempo map. The user can override BPM in settings, which speeds up or slows down playback. But Verovio's SVG positions are based on the original Tempo, so highlight timing uses the original map to stay aligned with the rendered notes."
+> **Domain expert**: "The Score has an original Tempo map. The user can either enable a fixed Tempo Override (replacing the map entirely), or keep it disabled and apply a Speed Ratio (multiplying the map's BPM). Either way, Verovio's SVG positions are based on the original Tempo, so highlight timing uses the original map to stay aligned with the rendered notes."

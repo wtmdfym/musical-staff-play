@@ -65,12 +65,16 @@ function timeToBeat(elapsedSec: number, tempoMap: TempoPoint[]): number {
 export class TempoClock {
   private _originalMap: TempoPoint[] = [{ time: 0, bpm: 120 }]
   private _effectiveMap: TempoPoint[] = [{ time: 0, bpm: 120 }]
+  private _bpmOverrideEnabled = false
   private _bpmOverride = 0
+  private _speedRatio = 1
 
-  configure(rawMap: TempoPoint[], bpmOverride: number): void {
+  configure(rawMap: TempoPoint[], bpmOverrideEnabled: boolean, bpmOverride: number, speedRatio: number): void {
     this._originalMap = (rawMap && rawMap.length > 0) ? rawMap : [{ time: 0, bpm: 120 }]
+    this._bpmOverrideEnabled = bpmOverrideEnabled
     this._bpmOverride = bpmOverride
-    if (bpmOverride > 0) {
+    this._speedRatio = speedRatio
+    if (bpmOverrideEnabled && bpmOverride > 0) {
       const baseBpm = this._originalMap[0].bpm
       const ratio = bpmOverride / baseBpm
       this._effectiveMap = this._originalMap.map(tp => ({
@@ -78,13 +82,23 @@ export class TempoClock {
         bpm: Math.round(tp.bpm * ratio),
       }))
     } else {
-      this._effectiveMap = this._originalMap
+      const sr = Math.max(0.25, Math.min(4, speedRatio))
+      if (sr !== 1) {
+        this._effectiveMap = this._originalMap.map(tp => ({
+          time: tp.time,
+          bpm: Math.round(tp.bpm * sr),
+        }))
+      } else {
+        this._effectiveMap = this._originalMap
+      }
     }
   }
 
   get originalMap(): TempoPoint[] { return this._originalMap }
   get effectiveMap(): TempoPoint[] { return this._effectiveMap }
+  get bpmOverrideEnabled(): boolean { return this._bpmOverrideEnabled }
   get bpmOverride(): number { return this._bpmOverride }
+  get speedRatio(): number { return this._speedRatio }
 
   beatToTime(beat: number): number {
     return beatToTime(beat, this._effectiveMap)

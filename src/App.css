@@ -50,11 +50,6 @@
   border: 1px solid var(--border);
 }
 
-.top-bar-controls {
-  display: flex;
-  gap: 4px;
-}
-
 .mode-btn {
   display: flex;
   align-items: center;
@@ -82,13 +77,92 @@
   box-shadow: 0 0 0 1px var(--accent-border);
 }
 
-.mode-label {
+/* ── Quick Settings in ControlBar ── */
+.control-quick-settings {
+  gap: 10px;
+}
+
+.quick-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quick-value {
   font-size: 11px;
-  color: var(--text);
-  margin-right: 2px;
-  font-weight: 500;
-  min-width: 36px;
+  color: var(--text-h);
+  min-width: 30px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.quick-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.quick-label {
+  font-size: 10px;
+  color: var(--text);
+  opacity: 0.7;
+  font-weight: 500;
+}
+
+.quick-bpm-row .zoom-slider {
+  width: 48px;
+}
+
+.quick-bpm-display {
+  font-size: 10px;
+  color: var(--text-h);
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 2px;
+}
+
+/* ── Status Indicators in ControlBar ── */
+.control-status-section {
+  gap: 12px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-label {
+  font-size: 10px;
+  color: var(--text);
+  opacity: 0.5;
+  font-weight: 500;
+}
+
+.status-value {
+  font-size: 11px;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Settings Panel extras ── */
+.setting-options {
+  display: flex;
+  gap: 4px;
+}
+
+.ctrl-btn.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-border);
 }
 
 /* ── Control Bar ── */
@@ -275,13 +349,6 @@
 .play-btn:hover {
   background: var(--accent-bg);
   border-color: var(--accent);
-}
-
-.display-settings {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
 }
 
 .setting-row {
@@ -837,6 +904,24 @@ g.note.highlight-preview {
 g.note.highlight-preview > * {
   fill: #7c3aed !important;
   color: #7c3aed !important;
+}
+
+/* ── Box Highlight Styles ── */
+
+.hl-box-active {
+  fill: rgba(124, 58, 237, 0.15);
+  stroke: rgba(124, 58, 237, 0.55);
+  stroke-width: 1.5;
+}
+
+.hl-box-preview {
+  fill: rgba(124, 58, 237, 0.06);
+  stroke: rgba(124, 58, 237, 0.25);
+  stroke-width: 1;
+}
+
+.hl-box-tie {
+  stroke-dasharray: 4 3;
 }
 
 g.note[data-judgment="perfect"] > * {

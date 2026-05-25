@@ -3,8 +3,8 @@ import { usePractice } from '../context/usePractice'
 import { useMidi } from '../playback/useMidi'
 
 const VOICE_LABELS: Record<number, string> = {
-  0: 'Default', 1: 'Voice 1', 2: 'Voice 2', 3: 'Voice 3',
-  4: 'Voice 4', 5: 'Voice 5', 6: 'Voice 6', 7: 'Voice 7',
+  0: 'Voice 1', 1: 'Voice 2', 2: 'Voice 3', 3: 'Voice 4',
+  4: 'Voice 5', 5: 'Voice 6', 6: 'Voice 7', 7: 'Voice 8',
 }
 
 const FPS_OPTIONS = [
@@ -25,12 +25,13 @@ const RENDER_FPS_OPTIONS = [
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = usePractice()
   const {
-    zoom, displayMode, bpmOverride, measuresWindow,
+    zoom, displayMode, bpmOverrideEnabled, bpmOverride, speedRatio, measuresWindow,
     emptyMeasures, playheadRatio, voiceColors, score, highlightLeadBeats,
     highlightRange,
     verovioPageWidth, verovioPageHeight, verovioStaffSpacing, verovioNoteSpacing,
     logicFps, renderFps,
     midiEnabled, midiDeviceId,
+    highlightMode,
   } = state
   const defaultBpm = score?.bpm ?? 60
   const [bpmInput, setBpmInput] = useState(String(bpmOverride || defaultBpm))
@@ -60,7 +61,10 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
   const resetDefaults = () => {
     dispatch({ type: 'SET_ZOOM', zoom: 1 })
+    dispatch({ type: 'SET_DISPLAY_MODE', mode: 'page' })
+    dispatch({ type: 'SET_BPM_OVERRIDE_ENABLED', enabled: false })
     dispatch({ type: 'SET_BPM', bpm: 0 })
+    dispatch({ type: 'SET_SPEED_RATIO', ratio: 1 })
     dispatch({ type: 'SET_MEASURES_WINDOW', count: 4 })
     dispatch({ type: 'SET_EMPTY_MEASURES', count: 2 })
     dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: 0.25 })
@@ -96,7 +100,25 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
 
         <div className="settings-body">
           <div className="settings-section">
-            <h3>Display</h3>
+            <h3>视图</h3>
+            <div className="setting-row">
+              <label className="setting-label">Display Mode</label>
+              <div className="setting-options">
+                <button
+                  className={`ctrl-btn ${displayMode === 'page' ? 'active' : ''}`}
+                  onClick={() => dispatch({ type: 'SET_DISPLAY_MODE', mode: 'page' })}
+                >
+                  Page
+                </button>
+                <button
+                  className={`ctrl-btn ${displayMode === 'scroll' ? 'active' : ''}`}
+                  onClick={() => dispatch({ type: 'SET_DISPLAY_MODE', mode: 'scroll' })}
+                >
+                  Scroll
+                </button>
+              </div>
+            </div>
+
             <div className="setting-row">
               <label className="setting-label">Zoom</label>
               <input
@@ -109,74 +131,98 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
             </div>
 
             <div className="setting-row">
-              <label className="setting-label">BPM</label>
-              <input
-                ref={bpmRef}
-                type="number" min="1" max="999"
-                value={bpmInput}
-                onChange={(e) => setBpmInput(e.target.value)}
-                onBlur={commitBpm}
-                onKeyDown={(e) => { if (e.key === 'Enter') bpmRef.current?.blur() }}
-                className="setting-number bpm-input"
-              />
-              {bpmOverride > 0 && (
-                <button className="ctrl-btn reset-btn" onClick={() => { dispatch({ type: 'SET_BPM', bpm: 0 }); setBpmInput(String(defaultBpm)) }} title="Reset to score BPM">↺</button>
-              )}
+              <label className="setting-label">Highlight</label>
+              <div className="setting-options">
+                <button
+                  className={`ctrl-btn ${highlightMode === 'color' ? 'active' : ''}`}
+                  onClick={() => dispatch({ type: 'SET_HIGHLIGHT_MODE', mode: 'color' })}
+                >
+                  Color
+                </button>
+                <button
+                  className={`ctrl-btn ${highlightMode === 'box' ? 'active' : ''}`}
+                  onClick={() => dispatch({ type: 'SET_HIGHLIGHT_MODE', mode: 'box' })}
+                >
+                  Box
+                </button>
+              </div>
             </div>
+          </div>
 
-            {displayMode === 'scroll' && (
-              <>
-                <div className="setting-row">
-                  <label className="setting-label">Judgment Line</label>
-                  <input type="range" min="0.1" max="0.5" step="0.01" value={playheadRatio}
-                    onChange={(e) => dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: parseFloat(e.target.value) })}
-                    className="zoom-slider" />
-                  <span className="setting-value">{Math.round(playheadRatio * 100)}%</span>
-                </div>
-                <div className="setting-row">
-                  <label className="setting-label">Window</label>
-                  <select value={measuresWindow} onChange={(e) => dispatch({ type: 'SET_MEASURES_WINDOW', count: parseInt(e.target.value) })} className="setting-select">
-                    {[2, 3, 4, 5, 6, 8, 12, 16].map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-                <div className="setting-row">
-                  <label className="setting-label">Lead</label>
-                  <select value={emptyMeasures} onChange={(e) => dispatch({ type: 'SET_EMPTY_MEASURES', count: parseInt(e.target.value) })} className="setting-select">
-                    {[0, 1, 2, 4, 8].map((n) => <option key={n} value={n}>{n === 0 ? 'None' : `${n}m`}</option>)}
-                  </select>
-                </div>
-                <div className="setting-row">
-                  <label className="setting-label">Highlight Lead</label>
-                  <input type="range" min="0.1" max="2" step="0.1" value={highlightLeadBeats}
-                    onChange={(e) => dispatch({ type: 'SET_HIGHLIGHT_LEAD', beats: parseFloat(e.target.value) })}
-                    className="zoom-slider" />
-                  <span className="setting-value">{highlightLeadBeats.toFixed(1)}b</span>
-                </div>
-                <div className="setting-row">
-                  <label className="setting-label">Highlight Range</label>
-                  <select value={highlightRange} onChange={(e) => dispatch({ type: 'SET_HIGHLIGHT_RANGE', count: parseInt(e.target.value) })} className="setting-select">
-                    {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} columns</option>)}
-                  </select>
-                </div>
-              </>
+          <div className="settings-section">
+            <h3>演奏</h3>
+            <div className="setting-row">
+              <label className="setting-label">Override Tempo</label>
+              <input
+                type="checkbox"
+                checked={bpmOverrideEnabled}
+                onChange={(e) => dispatch({ type: 'SET_BPM_OVERRIDE_ENABLED', enabled: e.target.checked })}
+              />
+            </div>
+            {bpmOverrideEnabled ? (
+              <div className="setting-row">
+                <label className="setting-label">Fixed BPM</label>
+                <input
+                  ref={bpmRef}
+                  type="number" min="1" max="999"
+                  value={bpmInput}
+                  onChange={(e) => setBpmInput(e.target.value)}
+                  onBlur={commitBpm}
+                  onKeyDown={(e) => { if (e.key === 'Enter') bpmRef.current?.blur() }}
+                  className="setting-number bpm-input"
+                />
+                <button className="ctrl-btn reset-btn" onClick={() => { dispatch({ type: 'SET_BPM', bpm: 0 }); setBpmInput(String(defaultBpm)) }} title="Reset to score BPM">↺</button>
+              </div>
+            ) : (
+              <div className="setting-row">
+                <label className="setting-label">Speed Ratio</label>
+                <input type="range" min="0.25" max="4" step="0.05" value={speedRatio}
+                  onChange={(e) => dispatch({ type: 'SET_SPEED_RATIO', ratio: parseFloat(e.target.value) })}
+                  className="zoom-slider" />
+                <span className="setting-value">{Math.round(speedRatio * 100)}%</span>
+              </div>
             )}
 
             <div className="setting-row">
-              <label className="setting-label">Logic FPS</label>
-              <select value={logicFps} onChange={(e) => dispatch({ type: 'SET_LOGIC_FPS', fps: parseInt(e.target.value) })} className="setting-select">
-                {FPS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <label className="setting-label">Judgment Line</label>
+              <input type="range" min="0.1" max="0.5" step="0.01" value={playheadRatio}
+                onChange={(e) => dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: parseFloat(e.target.value) })}
+                className="zoom-slider" />
+              <span className="setting-value">{Math.round(playheadRatio * 100)}%</span>
+            </div>
+
+            <div className="setting-row">
+              <label className="setting-label">Window</label>
+              <select value={measuresWindow} onChange={(e) => dispatch({ type: 'SET_MEASURES_WINDOW', count: parseInt(e.target.value) })} className="setting-select">
+                {[2, 3, 4, 5, 6, 8, 12, 16].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
+
             <div className="setting-row">
-              <label className="setting-label">Render FPS</label>
-              <select value={renderFps} onChange={(e) => dispatch({ type: 'SET_RENDER_FPS', fps: parseInt(e.target.value) })} className="setting-select">
-                {RENDER_FPS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              <label className="setting-label">Lead</label>
+              <select value={emptyMeasures} onChange={(e) => dispatch({ type: 'SET_EMPTY_MEASURES', count: parseInt(e.target.value) })} className="setting-select">
+                {[0, 1, 2, 4, 8].map((n) => <option key={n} value={n}>{n === 0 ? 'None' : `${n}m`}</option>)}
+              </select>
+            </div>
+
+            <div className="setting-row">
+              <label className="setting-label">Highlight Lead</label>
+              <input type="range" min="0.1" max="2" step="0.1" value={highlightLeadBeats}
+                onChange={(e) => dispatch({ type: 'SET_HIGHLIGHT_LEAD', beats: parseFloat(e.target.value) })}
+                className="zoom-slider" />
+              <span className="setting-value">{highlightLeadBeats.toFixed(1)}b</span>
+            </div>
+
+            <div className="setting-row">
+              <label className="setting-label">Highlight Range</label>
+              <select value={highlightRange} onChange={(e) => dispatch({ type: 'SET_HIGHLIGHT_RANGE', count: parseInt(e.target.value) })} className="setting-select">
+                {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} columns</option>)}
               </select>
             </div>
           </div>
 
           <div className="settings-section">
-            <h3>Layout</h3>
+            <h3>布局</h3>
             <div className="setting-row">
               <label className="setting-label">Page Width</label>
               <input type="range" min="500" max="5000" step="100" value={verovioPageWidth}
@@ -208,7 +254,23 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="settings-section">
-            <h3>MIDI Input</h3>
+            <h3>性能</h3>
+            <div className="setting-row">
+              <label className="setting-label">Logic FPS</label>
+              <select value={logicFps} onChange={(e) => dispatch({ type: 'SET_LOGIC_FPS', fps: parseInt(e.target.value) })} className="setting-select">
+                {FPS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="setting-row">
+              <label className="setting-label">Render FPS</label>
+              <select value={renderFps} onChange={(e) => dispatch({ type: 'SET_RENDER_FPS', fps: parseInt(e.target.value) })} className="setting-select">
+                {RENDER_FPS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>MIDI</h3>
             <div className="setting-row">
               <label className="setting-label">Enable MIDI</label>
               <input
@@ -251,7 +313,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="settings-section">
-            <h3>Voice Colors</h3>
+            <h3>声部颜色</h3>
             {[0, 1, 2, 3, 4, 5, 6, 7].map((v) => (
               <div className="setting-row" key={v}>
                 <label className="setting-label">{VOICE_LABELS[v]}</label>

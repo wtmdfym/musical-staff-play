@@ -1,102 +1,116 @@
 # Musical Staff Play - Agent Guidelines
 
-Note: This project is built on Windows, so make sure to use Windows PowerShell commands to avoid unnecessary errors.
-Program latency is critical for this project and should be minimized at all times.
-
-## Relative APIs
-
-- `Verovio toolkit`: https://book.verovio.org/toolkit-reference/toolkit-methods.html
+Note: This project is built on Windows — use PowerShell commands not bash. Latency-critical; keep operations lightweight.
 
 ## Development Commands
 
-- `pnpm run dev` - Start development server (Vite, with COOP/COEP headers)
-- `pnpm run build` - Build for production (tsc + vite build)
-- `pnpm run lint` - Run ESLint
-- `pnpm run preview` - Preview production build
+- `pnpm run dev` - Start dev server (Vite, port 5173 by default)
+- `pnpm run build` - Build for production (`tsc -b && vite build`)
+- `pnpm run lint` - ESLint
 
-## Key Technical Constraints
+## Tech Stack
 
-- **SharedArrayBuffer requires specific headers**: Vite server already configured with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` in `vite.config.ts`
-- **Web MIDI API**: Available in Chromium-based browsers (Chrome/Edge/Opera v90+). Requires user gesture to request access. Used for real MIDI keyboard input via `MidiInputManager.ts`.
-- **AudioContext**: Must be initiated via user gesture (click/tap), sampleRate may be 44.1kHz or 48kHz
-- **Timing**: All time-based operations must use `AudioContext.currentTime`, never `Date.now()` or `performance.now()` — `PlaybackEngine.ts` implements this
-- **ESLint config**: Uses `argsIgnorePattern: "^_"` to allow unused underscore-prefixed params
+| Concern               | Implementation                                                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework             | React 19, TypeScript ~6.0, Vite 8                                                                                                                                   |
+| Score rendering       | Verovio WASM toolkit (`verovio` ^6.1.0) — renders MusicXML/MEI → SVG                                                                                                |
+| Rendering engine      | `VerovioRenderer` (`src/renderer/VerovioEngine.ts`) — singleton via `getVerovioRenderer()`                                                                          |
+| Timing / beat-to-time | `TempoClock` (`src/playback/TempoClock.ts`) — pure arithmetic, no AudioContext                                                                                      |
+| Game loop             | `GameLoop` (`src/core/GameLoop.ts`) — singleton via `getGameLoop()`. Two independent ticks: logic (setInterval, configurable FPS) + render (RAF, optional throttle) |
+| Judgment              | `JudgmentEngine` (`src/playback/JudgmentEngine.ts`) — pitch + timing matching                                                                                       |
+| Feedback display      | `JudgmentDisplay` (`src/feedback/JudgmentDisplay.ts`) — sets `data-judgment` attribute on SVG `<note>` elements for CSS styling                                     |
+| MIDI input            | `MidiInputManager` (`src/playback/MidiInputManager.ts`) — singleton, Web MIDI API                                                                                   |
+| State                 | React Context + useReducer, localStorage persistence under `musicalStaffPlay_settings`                                                                              |
 
-## Project Structure (current)
+## Browser Constraints
 
-- **Entrypoint**: `src/main.tsx`
-- **Root component**: `src/App.tsx` (layout: TopBar → ControlBar → ScoreView+StatsPanel+Feedback → TimelineBar → Footer; includes SettingsPanel modal)
-- **State management**: `src/context/` — `practiceContext.ts` (dual context: state + dispatch), `practiceStore.tsx` (reducer + localStorage persistence), `usePractice.ts`
-- **Score data**: `src/score/ScoreTypes.ts`, `src/score/MusicxmlParser.ts`, `src/score/MidiParser.ts`, `src/data/mockScore.ts`
-- **Renderer**: `src/renderer/` — ScoreRenderer (base with all markings, judgment indicators), PageRenderer, ScrollRenderer, LayoutEngine, GlyphAtlas, LelandFont
-- **Playback/Judgment**: `src/playback/` — `PlaybackEngine.ts` (AudioContext-based clock), `JudgmentEngine.ts` (pitch-time comparison, column-based judgment), `MidiInputManager.ts` (Web MIDI device management)
-- **Components**: `src/components/` — TopBar, ControlBar, ScoreFileSelector, TransportControls, DisplaySettings, PositionControls, ScoreView, TimelineBar, StatsPanel, FeedbackLayer (combo only), HeatmapView, SettingsPanel
-- **Feedback**: `src/feedback/emitFeedback.ts` (pub/sub, combo-only feedback now; judgment shown on canvas)
+- Chromium-based browser (Chrome/Edge/Opera) v90+ required for Web MIDI
+- COOP/COEP headers configured in `vite.config.ts` for SharedArrayBuffer (though Verovio may not need it)
+- Web MIDI requires secure context (localhost or HTTPS) + user gesture
+- Verovio WASM module loads lazily in `VerovioRenderer.init()` — first call triggers ~2MB WASM download
 
-## Settings System
+## Architecture
 
-All configurable parameters go through `PracticeState` and persist to `localStorage` under `musicalStaffPlay_settings`:
+Entry: `src/main.tsx` → `src/App.tsx` → layout: TopBar → ControlBar → (ScoreView + StatsPanel) → TimelineBar → Footer; SettingsPanel modal.
 
-- **Display**: zoom, linesPerPage, measureGap, lineSpacing, playheadRatio, measuresWindow, emptyMeasures, bpmOverride
-- **Grand Staff**: grandStaffSpacing (0.5-3.0)
-- **Scroll**: scrollSpeed (20-500 px/beat), highlightLeadBeats (0.1-2.0 beats)
-- **Layout**: measurePadding (0-0.5 sps)
-- **Voices**: voiceColors (Record<number, string> for voices 0-7)
-- **PERSISTED_KEYS** defined in `practiceStore.tsx` — add new settings there
-- **SettingsPanel** component: modal overlay, ⚙ button in ControlBar
+**Core flow:**
 
-## Judgment & Feedback
+1. User opens MusicXML/MEI → `MusicxmlParser` produces `ScoreData`
+2. `GameLoop.loadScore(score, rawDocument)` sets up TempoClock, flattens events, loads Verovio, builds SVG event ID map
+3. During playback, `GameLoop._logicTick()` (setInterval) drives judgment checking + scroll/page dispatch
+4. `GameLoop._renderTick()` (RAF) updates highlights, playhead position, and SVG transform for scrolling
+5. `GameLoop._handleNoteInput(midi)` → `JudgmentEngine.onInputColumn(pitches, time)` → `GameLoop` sets `data-judgment` on SVG note element
 
-- **JudgmentEngine**: Pitch+timing matching using timing windows (perfect 40ms, great 80ms, good 120ms, miss 200ms). Uses `WeakMap<ScoreEvent, number>` for stable event IDs. Results include `noteIndex`.
-- **Canvas judgment indicators**: After judgment, colored indicators drawn at note positions (green circle+✓ for perfect, blue circle for great, yellow circle for good, red X for miss). Fade out over 1s.
-- **FeedbackLayer (DOM)**: Now only shows combo streak text. Per-note judgment feedback is rendered on the canvas.
-- **`judgedNotes` state**: Tracks which notes have been judged to hide highlights.
-- **MIDI input**: `MidiInputManager` wraps `navigator.requestMIDIAccess()`. NoteOn events feed through `JudgmentEngine.onInputColumn()` — same path as keyboard input. Must be triggered by user gesture (Play button click). Device hotplug handled via `onstatechange`.
-- **Page mode keyboard**: Arrow keys for navigation (disabled during playback).
-- **Scroll mode keyboard**: A-K keys = C4-C5 chromatic scale. `onInputColumn` automatically includes expected pitches for lenient matching.
+## State & Persistence
 
-## Verification Flow
+`PracticeState` in `src/score/ScoreTypes.ts`. Reducer in `src/context/practiceStore.tsx`.
 
-1. Build: `pnpm run build` (no errors)
-2. Lint: `pnpm run lint` (no errors)
-3. Dev: `pnpm run dev` → open browser
-4. Load test: Open `public/samples/c_major_scale.musicxml` via the Open button
-5. Visual checks:
-   - Page mode: 5 measures displayed, ← → arrow keys turn pages, page number shown at bottom
-   - Scroll mode: red playhead line at 25% width, notes scroll on autoplay via AudioContext timing
-   - Zoom slider changes note/staff size (all spacing scales proportionally)
-   - Play button auto-scrolls (scroll mode) or advances pages; stats update in real-time
-   - Stats panel shows on the right with grade/combo/counts
-   - Timeline bar at bottom shows measure progress with click-to-jump
-   - Keyboard input: Press A-K while playing in scroll mode to trigger judgment (A=C4, S=D4, etc.)
-   - Canvas judgment indicators show on note positions (green=perfect, blue=great, yellow=good, red=miss)
-   - Highlighted notes vanish after judged (no visual clutter)
-   - Settings panel (⚙ button): all settings configurable and persist across reloads
-   - MIDI input: Click Connect MIDI button in control bar or settings panel, then play to test with physical MIDI keyboard
-   - MIDI device selector in settings shows available devices, auto-select works for single device
-   - Grand staff: MusicXML files with bass clef show treble+bass staves
-   - Key signature: Displayed after clef in correct staff position
-   - Slurs/dynamics/articulations render when present in MusicXML
-   - Barlines have configurable padding to avoid note overlap
+**PERSISTED_KEYS** (saved to localStorage): `zoom`, `playheadRatio`, `measuresWindow`, `emptyMeasures`, `bpmOverrideEnabled`, `bpmOverride`, `speedRatio`, `voiceColors`, `displayMode`, `highlightLeadBeats`, `highlightRange`, `logicFps`, `renderFps`, `verovioPageWidth`, `verovioPageHeight`, `verovioStaffSpacing`, `verovioNoteSpacing`, `midiEnabled`, `midiDeviceId`, `highlightMode`.
+
+When adding a new persisted setting, add it to BOTH the `PERSISTED_KEYS` array and the `useEffect` dependency array (line ~202-209 of `practiceStore.tsx`).
+
+## Verovio Rendering
+
+`VerovioRenderer` wraps Verovio toolkit. Key points:
+
+- `loadScore(rawDocument: string)` — loads XML/MEI data, sets `svgAdditionalAttribute: ["note@pname", "note@oct", "note@staff", "note@voice"]` so SVG `<note>` elements carry pitch/oct/staff/voice metadata
+- `applyLayout(opts)` — sets scale/pageWidth/pageHeight/spacingStaff/spacingLinear, calls `redoLayout({ resetCache: true })`
+- `renderSVG(pageNo: number)` — 1-indexed, cached per page
+- `getElementAttr(xmlId)` — returns pname/oct for a note. `staff`/`voice` may be absent in Verovio 6.1.0; the mapper falls back to DOM ancestor inference (`closest('.staff')` / `closest('.layer')`).
+- `buildNoteQstampMap()` — builds a `Map<noteId, qstamp>` from `renderToTimemap()`. `qstamp` is the global quarter-note onset used for event→SVG matching.
+- `ScoreToSvgMapper.build(flatEvents, vrv)` (`VerovioScoreToSvgMapper`) — matches internal ScoreEvents to SVG note elements by `qstamp`+pitch within staff:voice groups
+
+**Layout options** (`VerovioLayoutOptions`): `zoom`, `pageWidth`, `pageHeight`, `staffSpacing`, `noteSpacing`. Scale is computed as `Math.round(40 * zoom)`.
+
+SVG notes are styled by CSS selectors: `.note.highlight-active` (next column, full brightness), `.note.highlight-preview` (subsequent columns, dimmed), `.note[data-judgment="perfect"]` etc.
+
+## Keyboard Input
+
+In scroll mode + playing, 12 keys map to MIDI 60–72 (C4–C5 chromatic):
+
+```
+A=60  W=61  S=62  E=63  D=64  F=65  T=66  G=67  Y=68  H=69  U=70  J=71  K=72
+```
+
+In page mode + not playing, ArrowLeft/ArrowRight navigate pages. All keyboard handling is in `GameLoop.init()`.
+
+## ScoreEvent & Judgment
+
+`ScoreEvent` interface fields: `pitch`, `time`, `duration`, `measureIndex`, `isRest`, `voice`, `staffIndex`.
+
+Timing windows: perfect ≤40ms, great ≤80ms, good ≤120ms, miss >120ms or beyond MISS_WINDOW (200ms).
+
+- `JudgmentResult` includes: `grade`, `pitch`, `expectedPitch`, `timingDelta`, `beat`, `measureIndex`, `noteIndex`, `staffIndex`.
+- Judgment key format: `"${measureIndex}:${staffIndex}:${noteIndex}"` (used in `_judgedKeys` Set and `FlatEvent` map)
+- `JudgmentEngine.onInputColumn(pitches[], currentTime)` — handles chords (multiple pitches at once)
+- `checkMissed(currentTime)` is called every logic tick to auto-miss notes past the window
 
 ## Common Gotchas
 
-- **LayoutEngine**: `calculatePageLayout` and `calculateScrollLayout` accept `measurePadding` (fraction of sps) — adjusts note x positions within measures to add space after barlines. Both return `staves[]` with `clef` info.
-- **NotePosition fields**: `pitch`, `x`, `y`, `stemUp`, `isRest`, `staffY`, `duration`, `alter`, `dot`, `articulations`, `measureIndex`, `noteIndex`, `voice` — always include ALL fields.
-- **ScoreEvent**: requires `alter`, `dot`, `articulations`, `voice`; MusicXML parser now reads `<voice>` from XML.
-- **PlaybackEngine**: AudioContext created lazily in `init()`. Must be triggered by user gesture.
-- **JudgmentEngine**: `JudgmentResult` now includes `noteIndex`. `IndexedEvent` stores `noteIndex` for mapping results back to note positions.
-- **RAF loop**: `renderLoopRef` pattern avoids stale closures. Runs in both scroll+playing and page+playing modes.
-- **Resize handler**: Debounced at 100ms.
-- **Layout caching**: ScrollRenderer and PageRenderer cache layouts per dimensions/zoom/spacing params. Invalidate when parameters change by setting cachedLayout = null.
-- **Notehead rendering**: `drawNotehead` uses adjusted Y (`ny = y - sps * 0.06`) for visual centering. Flag X offset `sps * 0.72` from center. Stem positions use `nhw = sps * 0.55` and `nhh = sps * 0.38`.
-- **Ledger lines**: Uses adjusted notehead Y (matching `ny`) for correct alignment. Former bug (offset downward) fixed.
-- **Scroll speed**: Configurable via `scrollSpeed` setting (replaces hardcoded `PX_PER_BEAT_BASE = 130`).
-- **MusicXML parser uses native DOMParser** — no external XML library needed.
-- **When editing React components**: Ensure ref access is in useEffect not during render.
-- **Voice coloring**: `voiceColors` in RenderConfig, passed to `drawNotehead` as `color` param. `drawGlyph` accepts optional `color` param, resets to `THEME.fg` after draw.
-- **Settings persistence**: `PERSISTED_KEYS` array in `practiceStore.tsx` controls what gets saved. New settings must be added there AND in the useEffect dependency array.
-- **ESLint rule `react-hooks/refs`**: Don't assign refs during render; use useEffect for ref assignment.
+- **Verovio toolkit must be initialized before use**: `VerovioRenderer.init()` is async (WASM loading). Check `isReady` before calling toolkit methods.
+- **Layout invalidates all Verovio caches**: `applyLayout()` clears SVG cache, timemap cache, and event ID map. Must rebuild event map after layout changes.
+- **`resetXmlIdSeed(0)`** is called on every `loadScore()` — ensures stable XML IDs across reloads.
+- **`GameLoop` singleton** — `getGameLoop()` returns a module-scoped instance. Used by ScoreView via import, not React context. The instance persists across hot-reloads in dev.
+- **`GameLoop._getElapsed()` uses `performance.now()`** — elapsed time is wall-clock seconds since play started. TempoClock handles beat↔time conversion separately.
+- **Logic tick uses `setInterval` not RAF** — configured by `logicFps` state. RAF is used for the render tick only.
+- **Debug logging** — GameLoop logs render/logic tick counts on stop. These use `console.log` with `[DEBUG-diagnose]` prefix. Don't remove them unless told to.
+- **MusicXML parser** uses native `DOMParser`, no external XML library. `.mxl` files are ZIP archives — use `JSZip` to extract XML. The parser feeds into Verovio via `rawDocument` (the original XML string).
+- **TSConfig project references**: `tsconfig.json` references `tsconfig.app.json` (src) and `tsconfig.node.json` (vite config). Build uses `tsc -b` for project-mode typechecking.
+- **ESLint**: `argsIgnorePattern: "^_"` allows unused underscore-prefixed params. `react-hooks/refs` rule — assign refs in useEffect, not render.
+- **No barrel files**: All imports use direct file paths (`import { X } from './core/GameLoop'`). No `index.ts` re-exports.
+- **No test framework**: No vitest/jest configured. The only test artifact is `tests/BasicTest.musicxml` (10-measure grand-staff piano score).
+- **`.claude/CLAUDE.md` is stale**: References old Canvas 2D architecture (deleted files like `ScoreRenderer.ts`, `PageRenderer.ts`, `LayoutEngine.ts`, `GlyphAtlas.ts`). Do not rely on it — trust this file and `guide.md` instead.
+- **`guide.md`** (Chinese) is the definitive module-by-module dev guide with data-flow diagrams and common-modification scenarios. Consult it for detailed docs beyond this file.
+
+## API reference
+
+Visit links of API for reference when you need to use it.
+
+- `Verovio toolkit`: https://book.verovio.org/toolkit-reference/toolkit-methods.html
+
+## Test Data
+
+- `MusicXML`: tests\BasicTest.musicxml
 
 ## Agent skills
 
