@@ -40,6 +40,10 @@ _Avoid_: key
 
 ### Playback
 
+**AutoPlay**:
+A playback mode where the app automatically synthesizes the correct note at the correct time using Web Audio API. No user input is required. No judgments are generated and no stats are accumulated. The highlight system tracks the playback position visually. Intended as a demo/watch mode, not a practice mode.
+_Avoid_: auto-play, auto, demo, watch, playback-only
+
 **Beat**:
 A unit of musical time. All Event onset times are measured in beats from the start of the Score. Beats convert to wall-clock seconds via the Tempo map.
 _Avoid_: tick, step, unit
@@ -132,3 +136,9 @@ _Avoid_: callback, handler
 >
 > **Dev**: "How does Tempo override work with highlights?"
 > **Domain expert**: "The Score has an original Tempo map. The user can either enable a fixed Tempo Override (replacing the map entirely), or keep it disabled and apply a Speed Ratio (multiplying the map's BPM). Either way, Verovio's SVG positions are based on the original Tempo, so highlight timing uses the original map to stay aligned with the rendered notes."
+>
+> **Dev**: "What happens to Keyboard/MIDI input during AutoPlay?"
+> **Domain expert**: "All user input is blocked during AutoPlay. The app sends no MIDI, ignores keyboard note inputs, and produces no Judgment results. The highlight follows the Playhead position based on elapsed time rather than judged notes."
+>
+> **Dev**: "Does AutoPlay sound notes during the empty-measures countdown?"
+> **Domain expert**: "No. AutoPlay respects the empty-measures visual countdown period. The first note sounds when the playhead reaches beat 0 of the score, aligned with the visual scroll. This gives the viewer time to orient to the staff before notes begin."

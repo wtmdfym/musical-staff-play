@@ -1,7 +1,7 @@
 import type { ScoreData, ScoreEvent } from '../score/ScoreTypes'
 import { buildEventIndex } from '../score/ScoreEventIndex'
 import type { TempoClock } from '../playback/TempoClock'
-import type { HighlightColumn, HighlightColumnNote } from '../feedback/HighlightRenderer'
+import type { HighlightColumn, HighlightColumnNote } from '../score/ScoreTypes'
 
 export interface EventRegistryEntry {
   event: ScoreEvent
@@ -76,7 +76,7 @@ export class EventRegistry {
     return this._judged.has(key)
   }
 
-  resetJudgments(): void {
+  reset(): void {
     this._judged.clear()
   }
 
@@ -146,6 +146,9 @@ export class EventRegistry {
       } else {
         lo = mid + 1
       }
+    }
+    if (result > 0 && fromBeat - this._columnGroups[result - 1].beat < 0.1) {
+      result--
     }
     return result
   }

@@ -1,12 +1,6 @@
-export interface HighlightColumnNote {
-  svgId: string
-  staffIndex: number
-  voice: number
-}
+import type { HighlightColumn, HighlightColumnNote } from '../score/ScoreTypes'
 
-export interface HighlightColumn {
-  notes: HighlightColumnNote[]
-}
+export type { HighlightColumn, HighlightColumnNote }
 
 export interface HighlightRenderer {
   update(columns: HighlightColumn[]): void

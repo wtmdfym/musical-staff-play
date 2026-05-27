@@ -1,5 +1,12 @@
 import type { JudgmentGrade, JudgmentResult } from '../score/ScoreTypes'
-import type { EventRegistry, EventRegistryEntry } from '../core/EventRegistry'
+import type { EventRegistryEntry } from '../core/EventRegistry'
+
+export interface JudgmentRegistry {
+  readonly all: readonly EventRegistryEntry[]
+  isJudged(key: string): boolean
+  markJudged(key: string): void
+  reset(): void
+}
 
 const PERFECT_WINDOW = 0.04
 const GREAT_WINDOW = 0.08
@@ -7,10 +14,10 @@ const GOOD_WINDOW = 0.12
 const MISS_WINDOW = 0.2
 
 export class JudgmentEngine {
-  private _registry: EventRegistry | null = null
+  private _registry: JudgmentRegistry | null = null
   private _onJudgment: ((result: JudgmentResult) => void) | null = null
 
-  setRegistry(registry: EventRegistry | null): void {
+  setRegistry(registry: JudgmentRegistry | null): void {
     this._registry = registry
   }
 
@@ -144,6 +151,6 @@ export class JudgmentEngine {
   }
 
   reset(): void {
-    this._registry?.resetJudgments()
+    this._registry?.reset()
   }
 }

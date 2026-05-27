@@ -60,6 +60,9 @@ const initialState: PracticeState = {
   midiEnabled: false,
   midiDeviceId: '',
   highlightMode: 'color',
+  autoPlay: false,
+  autoPlayVolume: 30,
+  autoPlayDelay: 0,
   rawDocument: null,
   documentFormat: null,
   ...persisted,
@@ -169,6 +172,12 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, midiDeviceId: action.deviceId }
     case 'SET_HIGHLIGHT_MODE':
       return { ...state, highlightMode: action.mode }
+    case 'SET_AUTO_PLAY':
+      return { ...state, autoPlay: action.enabled }
+    case 'SET_AUTO_PLAY_VOLUME':
+      return { ...state, autoPlayVolume: Math.max(1, Math.min(100, action.volume)) }
+    case 'SET_AUTO_PLAY_DELAY':
+      return { ...state, autoPlayDelay: Math.max(-500, Math.min(500, action.delay)) }
     default:
       return state
   }
@@ -179,7 +188,7 @@ const PERSISTED_KEYS: (keyof PracticeState)[] = [
   'bpmOverrideEnabled', 'bpmOverride', 'speedRatio', 'voiceColors', 'displayMode', 'highlightLeadBeats',
   'highlightRange', 'logicFps', 'renderFps',
   'verovioPageWidth', 'verovioPageHeight', 'verovioStaffSpacing', 'verovioNoteSpacing',
-  'midiEnabled', 'midiDeviceId', 'highlightMode',
+  'midiEnabled', 'midiDeviceId', 'highlightMode', 'autoPlayVolume', 'autoPlayDelay',
 ]
 
 export function PracticeProvider({ children }: { children: ReactNode }) {
@@ -205,7 +214,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     state.displayMode, state.highlightLeadBeats,
     state.highlightRange, state.logicFps, state.renderFps,
     state.verovioPageWidth, state.verovioPageHeight, state.verovioStaffSpacing, state.verovioNoteSpacing,
-    state.midiEnabled, state.midiDeviceId, state.highlightMode,
+    state.midiEnabled, state.midiDeviceId, state.highlightMode, state.autoPlayVolume, state.autoPlayDelay,
   ])
   return (
     <PracticeStateContext.Provider value={state}>

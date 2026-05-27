@@ -1,4 +1,5 @@
 import type { VerovioRenderer } from './VerovioEngine'
+import { midiToPnameOct, PITCH_NAMES } from './pitchUtils'
 
 export interface MappableEvent {
   measureIndex: number
@@ -22,17 +23,6 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
     if (!svgs.length) return map
 
     const TIMING_TOLERANCE = 0.01
-    const DIATONIC_MAP: Record<string, string> = { c: 'c', d: 'd', e: 'e', f: 'f', g: 'g', a: 'a', b: 'b' }
-    const MIDI_TO_PNAME: Record<number, string> = { 0: 'c', 1: 'c', 2: 'd', 3: 'd', 4: 'e', 5: 'f', 6: 'f', 7: 'g', 8: 'g', 9: 'a', 10: 'a', 11: 'b' }
-
-    function midiToPnameOct(pitch: number): { pname: string; oct: string } | null {
-      if (pitch < 0 || pitch > 127) return null
-      const semitone = pitch % 12
-      const pname = MIDI_TO_PNAME[semitone]
-      if (!pname) return null
-      const oct = Math.floor(pitch / 12) - 1
-      return { pname, oct: String(oct) }
-    }
 
     const qstampMap = vrv.buildNoteQstampMap()
 
@@ -88,7 +78,7 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
               const pname = attr.pname
               const oct = attr.oct
               if (!pname || !oct) continue
-              if (!DIATONIC_MAP[pname]) continue
+              if (PITCH_NAMES[pname] === undefined) continue
 
               const time = qstampMap.get(id)
               if (time === undefined) continue

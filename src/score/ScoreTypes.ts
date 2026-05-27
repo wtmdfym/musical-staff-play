@@ -34,19 +34,21 @@ export interface ScoreData {
   tempoMap: TempoPoint[]
 }
 
-export interface HighlightColumn {
-  beat: number
-  staff: 'treble' | 'bass'
-  notes: { pitch: number; time: number; duration: number; measureIndex: number; noteIndex: number; staffIndex: number }[]
-  isPlayable: boolean
-  grade?: JudgmentGrade
-}
-
 export type DisplayMode = 'page' | 'scroll'
 
 export type HighlightMode = 'color' | 'box'
 
 export type PlayState = 'stopped' | 'playing' | 'paused'
+
+export interface HighlightColumnNote {
+  svgId: string
+  staffIndex: number
+  voice: number
+}
+
+export interface HighlightColumn {
+  notes: HighlightColumnNote[]
+}
 
 export interface PracticeState {
   displayMode: DisplayMode
@@ -82,6 +84,9 @@ export interface PracticeState {
   midiEnabled: boolean
   midiDeviceId: string
   highlightMode: HighlightMode
+  autoPlay: boolean
+  autoPlayVolume: number
+  autoPlayDelay: number
   rawDocument: string | null
   documentFormat: 'musicxml' | 'mei' | null
 }
@@ -147,3 +152,6 @@ export type PracticeAction =
   | { type: 'SET_MIDI_ENABLED'; enabled: boolean }
   | { type: 'SET_MIDI_DEVICE_ID'; deviceId: string }
   | { type: 'SET_HIGHLIGHT_MODE'; mode: HighlightMode }
+  | { type: 'SET_AUTO_PLAY'; enabled: boolean }
+  | { type: 'SET_AUTO_PLAY_VOLUME'; volume: number }
+  | { type: 'SET_AUTO_PLAY_DELAY'; delay: number }

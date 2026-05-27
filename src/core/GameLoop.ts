@@ -11,6 +11,7 @@ import type { PlaybackEventSink } from "./PlaybackEvents";
 import type { VerovioLayoutOptions } from "../renderer/VerovioEngine";
 import { TempoClock } from "../playback/TempoClock";
 import { JudgmentEngine } from "../playback/JudgmentEngine";
+import { AutoPlayer } from "../playback/AutoPlayer";
 import { JudgmentDisplay } from "../feedback/JudgmentDisplay";
 import {
   DomHighlightRenderer,
@@ -43,6 +44,9 @@ export interface GameLoopConfig {
   logicFps: number;
   renderFps: number;
   highlightMode: 'color' | 'box';
+  autoPlay: boolean;
+  autoPlayVolume: number;
+  autoPlayDelay: number;
 }
 
 export interface GameLoopDomRefs {
@@ -76,6 +80,7 @@ export class GameLoop {
   private _vrvPageCount = 0;
 
   private _je = new JudgmentEngine();
+  private _autoPlayer = new AutoPlayer();
   private _vrv: VerovioRenderer;
   private _midi: MidiInputManager;
   private _jd = new JudgmentDisplay();
@@ -96,6 +101,9 @@ export class GameLoop {
     logicFps: 60,
     renderFps: 60,
     highlightMode: 'color',
+    autoPlay: false,
+    autoPlayVolume: 30,
+    autoPlayDelay: 0,
   };
 
   private _highlightRenderer: HighlightRenderer = new DomHighlightRenderer();
@@ -155,10 +163,12 @@ export class GameLoop {
       cancelAnimationFrame(this._rafId);
       this._rafId = 0;
     }
+    this._autoPlayer.reset();
     this._eventSink = null;
   }
 
   private _handleNoteInput(midiNote: number): void {
+    if (this._config.autoPlay && this._autoPlayer.active) return;
     if (!this._score) {
       this._je.onInput(midiNote, this._playbackDriver.elapsed);
       return;
@@ -170,41 +180,38 @@ export class GameLoop {
 
   setConfig(partial: Partial<GameLoopConfig>): void {
     const prev = this._config;
-    const bpmSettingsChanged =
-      partial.bpmOverrideEnabled !== undefined ||
-      partial.bpmOverride !== undefined ||
-      partial.speedRatio !== undefined;
-    const logicChanged =
-      partial.logicFps !== undefined && partial.logicFps !== prev.logicFps;
-    const renderChanged =
-      partial.renderFps !== undefined && partial.renderFps !== prev.renderFps;
-    const midiChanged =
-      partial.midiEnabled !== undefined &&
-      partial.midiEnabled !== prev.midiEnabled;
-    const midiDevChanged =
-      partial.midiDeviceId !== undefined &&
-      partial.midiDeviceId !== prev.midiDeviceId;
-    const emptyChanged =
-      partial.emptyMeasures !== undefined &&
-      partial.emptyMeasures !== prev.emptyMeasures;
-    const displayModeChanged =
-      partial.displayMode !== undefined &&
-      partial.displayMode !== prev.displayMode;
-    const highlightModeChanged =
-      partial.highlightMode !== undefined &&
-      partial.highlightMode !== prev.highlightMode;
-
     Object.assign(this._config, partial);
+    this._applyConfigEffects(partial, prev);
+  }
 
-    if (highlightModeChanged) {
+  private _applyConfigEffects(partial: Partial<GameLoopConfig>, prev: GameLoopConfig): void {
+    // AutoPlay
+    if (partial.autoPlay !== undefined && this._config.autoPlay) {
+      this._autoPlayer.initAudio();
+    }
+    if (partial.autoPlayVolume !== undefined) {
+      this._autoPlayer.setVolume(this._config.autoPlayVolume);
+    }
+    if (partial.autoPlayDelay !== undefined) {
+      this._autoPlayer.setDelay(this._config.autoPlayDelay);
+    }
+
+    // Highlight mode
+    if (partial.highlightMode !== undefined && partial.highlightMode !== prev.highlightMode) {
       this._syncHighlightRenderer();
     }
 
-    if (displayModeChanged) {
+    // Display mode
+    if (partial.displayMode !== undefined && partial.displayMode !== prev.displayMode) {
       this._inputRouter.setDisplayMode(this._config.displayMode);
     }
 
-    if (bpmSettingsChanged && this._score) {
+    // BPM / tempo
+    if (this._score && (
+      partial.bpmOverrideEnabled !== undefined ||
+      partial.bpmOverride !== undefined ||
+      partial.speedRatio !== undefined
+    )) {
       this._tempoClock.configure(
         this._score.tempoMap,
         this._config.bpmOverrideEnabled,
@@ -214,17 +221,26 @@ export class GameLoop {
       this._eventRegistry.updateTimes(this._tempoClock);
     }
 
-    if ((logicChanged || renderChanged) && this._playbackDriver.state === "playing") {
+    // Logic/render FPS
+    if (this._playbackDriver.state === "playing" && (
+      (partial.logicFps !== undefined && partial.logicFps !== prev.logicFps) ||
+      (partial.renderFps !== undefined && partial.renderFps !== prev.renderFps)
+    )) {
       this._restartLogicInterval();
     }
 
-    if (midiChanged || midiDevChanged) {
+    // MIDI
+    if (
+      (partial.midiEnabled !== undefined && partial.midiEnabled !== prev.midiEnabled) ||
+      (partial.midiDeviceId !== undefined && partial.midiDeviceId !== prev.midiDeviceId)
+    ) {
       this._syncMidi();
     }
 
-    if (emptyChanged && this._score) {
+    // Empty measures
+    if (this._score && partial.emptyMeasures !== undefined && partial.emptyMeasures !== prev.emptyMeasures) {
       const timeSigBeat = this._score.measures[0]?.timeSignature[0] ?? 4;
-      this._emptyBeats = partial.emptyMeasures! * timeSigBeat;
+      this._emptyBeats = this._config.emptyMeasures * timeSigBeat;
       this._totalWithEmpty = this._score.totalBeats + this._emptyBeats;
     }
   }
@@ -338,6 +354,11 @@ export class GameLoop {
 
     this._clearHighlights();
     this._startLogicInterval();
+
+    if (this._config.autoPlay) {
+      this._autoPlayer.start();
+    }
+
     this._syncMidi();
   }
 
@@ -368,6 +389,7 @@ export class GameLoop {
     this._clearHighlights();
     this._viewportPositioner.resetScroll();
     this._midi.close();
+    this._autoPlayer.stop();
   }
 
   seekToBeat(beat: number): void {
@@ -375,6 +397,7 @@ export class GameLoop {
   }
 
   private _syncMidi(): void {
+    if (this._config.autoPlay) return;
     if (this._playbackDriver.state === "playing" && this._config.midiEnabled) {
       this._midi.onNoteOn = this._inputRouter.midiNoteHandler;
       this._midi.open(this._config.midiDeviceId || undefined);
@@ -402,10 +425,7 @@ export class GameLoop {
     }
   }
 
-  private _logicTick(): void {
-    if (this._playbackDriver.state !== "playing") return;
-    if (!this._score) return;
-
+  private _tickTiming(): void {
     this._logicTickCount++;
     const now = performance.now();
     if (this._lastLogicTickTime > 0) {
@@ -414,20 +434,27 @@ export class GameLoop {
     }
     this._lastLogicTickTime = now;
     this._computeFps();
+  }
 
+  private _tickContext(): { elapsed: number; beat: number; displayBeat: number; judgeTime: number; totalBeats: number; isEnded: boolean } {
     const elapsed = this._playbackDriver.elapsed;
     const beat = this._tempoClock.timeToBeat(elapsed);
     const displayBeat = beat - this._emptyBeats;
-    const totalBeats = this._score.totalBeats;
-
-    if (displayBeat >= totalBeats) {
-      this._eventSink?.emit({ type: 'playback-ended' });
-      return;
-    }
-
+    const totalBeats = this._score!.totalBeats;
+    const isEnded = displayBeat >= totalBeats;
     const judgeTime = elapsed - this._tempoClock.beatToTime(this._emptyBeats);
-    this._je.checkMissed(judgeTime);
+    return { elapsed, beat, displayBeat, judgeTime, totalBeats, isEnded };
+  }
 
+  private _tickJudgment(judgeTime: number): void {
+    if (this._config.autoPlay && this._autoPlayer.active) {
+      this._autoPlayer.scheduleTick(this._eventRegistry.all, this._tempoClock, this._emptyBeats);
+    } else {
+      this._je.checkMissed(judgeTime);
+    }
+  }
+
+  private _tickScrollEmit(beat: number): void {
     if (Math.abs(beat - this._lastLogicDispatch) > 0.01) {
       this._lastLogicDispatch = beat;
       if (this._logicTickCount <= 3 || this._logicTickCount % 60 === 0) {
@@ -437,6 +464,20 @@ export class GameLoop {
       }
       this._eventSink?.emit({ type: 'scroll-offset-changed', offset: beat });
     }
+  }
+
+  private _logicTick(): void {
+    if (this._playbackDriver.state !== "playing") return;
+    if (!this._score) return;
+
+    this._tickTiming();
+    const ctx = this._tickContext();
+    if (ctx.isEnded) {
+      this._eventSink?.emit({ type: 'playback-ended' });
+      return;
+    }
+    this._tickJudgment(ctx.judgeTime);
+    this._tickScrollEmit(ctx.beat);
   }
 
   private _scheduleRender(): void {
@@ -545,25 +586,6 @@ export class GameLoop {
     this._highlightRenderer.clear();
   }
 
-  get vrvPageCount(): number {
-    return this._vrvPageCount;
-  }
-
-  hasVerovioDoc(): boolean {
-    return this._vrv.hasDocument;
-  }
-
-  renderSvg(pageNo: number): string {
-    return this._vrv.renderSVG(pageNo);
-  }
-
-  renderAllSvgs(): string[] {
-    return this._vrv.renderAllSVGs();
-  }
-
-  get pageCount(): number {
-    return this._vrv.pageCount;
-  }
 }
 
 let _instance: GameLoop | null = null;

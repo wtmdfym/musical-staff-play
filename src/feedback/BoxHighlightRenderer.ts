@@ -1,5 +1,5 @@
 /* eslint-disable no-useless-assignment */
-import type { HighlightColumn, HighlightColumnNote } from "./HighlightRenderer";
+import type { HighlightColumn, HighlightColumnNote } from "../score/ScoreTypes";
 
 interface BBox {
   x: number;

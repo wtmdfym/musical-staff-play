@@ -69,6 +69,9 @@ export default function ScoreView() {
     renderFps,
     totalPages,
     highlightMode,
+    autoPlay,
+    autoPlayVolume,
+    autoPlayDelay,
   } = state
 
   const [vrvReady, setVrvReady] = useState(() => getVerovioRenderer().isReady)
@@ -155,6 +158,9 @@ export default function ScoreView() {
       logicFps,
       renderFps,
       highlightMode,
+      autoPlay,
+      autoPlayVolume,
+      autoPlayDelay,
     })
   })
 
@@ -170,7 +176,7 @@ export default function ScoreView() {
   }, [playState])
 
   useEffect(() => {
-    if (displayMode === 'page' && glInstance.hasVerovioDoc()) {
+    if (displayMode === 'page' && getVerovioRenderer().hasDocument) {
       console.log(`[DEBUG-diagnose] reapplyJudgments (page=${currentPage})`)
       glInstance.reapplyJudgments()
     }
@@ -182,12 +188,12 @@ export default function ScoreView() {
       `[DEBUG-diagnose] svgContent recompute #${_svgContentRecomputeCount} ` +
       `(mode=${displayMode} page=${currentPage} totalPages=${totalPages} zoom=${zoom} rawDoc=${rawDocument ? rawDocument.length : 'null'})`
     )
-    if (!glInstance.hasVerovioDoc() || !rawDocument) return null
+    if (!getVerovioRenderer().hasDocument || !rawDocument) return null
     if (displayMode === 'page') {
       const pageNo = Math.min(currentPage + 1, Math.max(1, totalPages))
-      return glInstance.renderSvg(pageNo)
+      return getVerovioRenderer().renderSVG(pageNo)
     } else {
-      const svgs = glInstance.renderAllSvgs()
+      const svgs = getVerovioRenderer().renderAllSVGs()
       return svgs.map((s, i) => ({ svg: s, page: i + 1 }))
     }
   }, [rawDocument, displayMode, currentPage, totalPages, zoom])

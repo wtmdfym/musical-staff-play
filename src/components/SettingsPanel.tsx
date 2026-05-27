@@ -32,6 +32,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     logicFps, renderFps,
     midiEnabled, midiDeviceId,
     highlightMode,
+    autoPlayVolume, autoPlayDelay,
   } = state
   const defaultBpm = score?.bpm ?? 60
   const [bpmInput, setBpmInput] = useState(String(bpmOverride || defaultBpm))
@@ -78,6 +79,8 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     dispatch({ type: 'SET_VEROVIO_NOTE_SPACING', spacing: 0.25 })
     dispatch({ type: 'SET_MIDI_ENABLED', enabled: false })
     dispatch({ type: 'SET_MIDI_DEVICE_ID', deviceId: '' })
+    dispatch({ type: 'SET_AUTO_PLAY_VOLUME', volume: 30 })
+    dispatch({ type: 'SET_AUTO_PLAY_DELAY', delay: 0 })
     setBpmInput(String(defaultBpm))
   }
 
@@ -218,6 +221,30 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
               <select value={highlightRange} onChange={(e) => dispatch({ type: 'SET_HIGHLIGHT_RANGE', count: parseInt(e.target.value) })} className="setting-select">
                 {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} columns</option>)}
               </select>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>自动播放</h3>
+            <div className="setting-row">
+              <label className="setting-label">Volume</label>
+              <input
+                type="range" min="1" max="100" step="1"
+                value={autoPlayVolume}
+                onChange={(e) => dispatch({ type: 'SET_AUTO_PLAY_VOLUME', volume: parseInt(e.target.value) })}
+                className="zoom-slider"
+              />
+              <span className="setting-value">{autoPlayVolume}%</span>
+            </div>
+            <div className="setting-row">
+              <label className="setting-label">Delay</label>
+              <input
+                type="range" min="-500" max="500" step="10"
+                value={autoPlayDelay}
+                onChange={(e) => dispatch({ type: 'SET_AUTO_PLAY_DELAY', delay: parseInt(e.target.value) })}
+                className="zoom-slider"
+              />
+              <span className="setting-value">{autoPlayDelay}ms</span>
             </div>
           </div>
 

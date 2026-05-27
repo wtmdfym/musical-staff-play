@@ -5,10 +5,11 @@ import { usePractice } from '../context/usePractice'
 import { useMidi } from '../playback/useMidi'
 import { useFpsMonitor } from '../playback/useFpsMonitor'
 
+
 export default function ControlBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { state, dispatch } = usePractice()
   const {
-    displayMode, zoom, bpmOverrideEnabled, bpmOverride, speedRatio, score, playState,
+    displayMode, zoom, bpmOverrideEnabled, bpmOverride, speedRatio, score, playState, autoPlay,
   } = state
   const defaultBpm = score?.bpm ?? 60
   const { status: midiStatus, inputName: midiInputName } = useMidi()
@@ -50,6 +51,17 @@ export default function ControlBar({ onOpenSettings }: { onOpenSettings: () => v
 
       <div className="control-section">
         <TransportControls />
+        <label className="quick-toggle auto-play-toggle" title={playState === 'playing' ? 'Stop playback to toggle AutoPlay' : 'Auto-play notes with synthesized sound'}>
+          <input
+            type="checkbox"
+            checked={autoPlay}
+            disabled={playState === 'playing'}
+            onChange={(e) => {
+              dispatch({ type: 'SET_AUTO_PLAY', enabled: e.target.checked })
+            }}
+          />
+          <span className="quick-label">Auto</span>
+        </label>
       </div>
 
       <div className="control-divider" />
