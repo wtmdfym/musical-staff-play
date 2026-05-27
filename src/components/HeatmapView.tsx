@@ -15,7 +15,7 @@ export default function HeatmapView() {
   if (!showHeatmap || !score) return null
 
   const totalMeasures = score.measures.length
-  const total = stats.perfect + stats.great + stats.good + stats.miss
+  const total = stats.noteOn.perfect + stats.noteOn.great + stats.noteOn.good + stats.noteOn.miss
 
   const measureRates: number[] = Array.from({ length: totalMeasures }, (_, i) => {
     const errors = state.measureErrors[i] || 0
@@ -30,10 +30,10 @@ export default function HeatmapView() {
 
         <div className="heatmap-summary">
           <div>Score: <strong>{total > 0
-            ? Math.round((stats.perfect + stats.great) / total * 100)
+            ? Math.round((stats.noteOn.perfect + stats.noteOn.great) / total * 100)
             : 100}%</strong></div>
           <div>Max Combo: <strong>{stats.maxCombo}x</strong></div>
-          <div>Perfect: {stats.perfect} · Great: {stats.great} · Good: {stats.good} · Miss: {stats.miss}</div>
+          <div>Perfect: {stats.noteOn.perfect} · Great: {stats.noteOn.great} · Good: {stats.noteOn.good} · Miss: {stats.noteOn.miss}</div>
         </div>
 
         <div className="heatmap-grid">

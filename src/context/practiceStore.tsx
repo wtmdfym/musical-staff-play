@@ -36,7 +36,14 @@ const initialState: PracticeState = {
   rangeStart: 0,
   rangeEnd: 4,
   fileName: 'C Major Scale',
-  stats: { perfect: 0, great: 0, good: 0, miss: 0, combo: 0, maxCombo: 0 },
+        stats: {
+          noteOn: { perfect: 0, great: 0, good: 0, miss: 0 },
+          noteOff: { perfect: 0, great: 0, good: 0, miss: 0 },
+          velocity: { perfect: 0, great: 0, good: 0, miss: 0 },
+          pedal: { perfect: 0, great: 0, good: 0, miss: 0 },
+          combo: 0,
+          maxCombo: 0,
+        },
   showHeatmap: false,
   highlightMeasure: -1,
   measureErrors: {},
@@ -63,6 +70,9 @@ const initialState: PracticeState = {
   autoPlay: false,
   autoPlayVolume: 30,
   autoPlayDelay: 0,
+  velocityJudgmentEnabled: false,
+  pedalJudgmentEnabled: false,
+  noteOffJudgmentEnabled: false,
   rawDocument: null,
   documentFormat: null,
   ...persisted,
@@ -100,7 +110,14 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
         currentPage: 0,
         scrollOffset: 0,
         playState: 'stopped',
-        stats: { perfect: 0, great: 0, good: 0, miss: 0, combo: 0, maxCombo: 0 },
+  stats: {
+    noteOn: { perfect: 0, great: 0, good: 0, miss: 0 },
+    noteOff: { perfect: 0, great: 0, good: 0, miss: 0 },
+    velocity: { perfect: 0, great: 0, good: 0, miss: 0 },
+    pedal: { perfect: 0, great: 0, good: 0, miss: 0 },
+    combo: 0,
+    maxCombo: 0,
+  },
         measureErrors: {},
       }
     case 'SET_RANGE_START':
@@ -112,24 +129,40 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
     case 'HIDE_HEATMAP':
       return { ...state, showHeatmap: false }
     case 'JUDGE': {
-      const stats = { ...state.stats }
-      stats[action.result.grade]++
+      const stats = {
+        noteOn: { ...state.stats.noteOn },
+        noteOff: { ...state.stats.noteOff },
+        velocity: { ...state.stats.velocity },
+        pedal: { ...state.stats.pedal },
+        combo: state.stats.combo,
+        maxCombo: state.stats.maxCombo,
+      }
+      const dim = action.result.type
+      stats[dim][action.result.grade]++
       const key = `${action.result.measureIndex}:${action.result.noteIndex}`
       const judgedNotes = { ...state.judgedNotes, [key]: true }
-      if (action.result.grade !== 'miss') {
+      if (dim === 'noteOn' && action.result.grade !== 'miss') {
         stats.combo++
         if (stats.combo > stats.maxCombo) stats.maxCombo = stats.combo
         return { ...state, stats, judgedNotes }
-      } else {
+      } else if (dim === 'noteOn') {
         stats.combo = 0
         const mIdx = action.result.measureIndex
         const measureErrors = { ...state.measureErrors }
         measureErrors[mIdx] = (measureErrors[mIdx] || 0) + 1
         return { ...state, stats, measureErrors, judgedNotes }
       }
+      return { ...state, stats, judgedNotes }
     }
     case 'RESET_STATS':
-      return { ...state, stats: { perfect: 0, great: 0, good: 0, miss: 0, combo: 0, maxCombo: 0 }, measureErrors: {} }
+      return { ...state, stats: {
+        noteOn: { perfect: 0, great: 0, good: 0, miss: 0 },
+        noteOff: { perfect: 0, great: 0, good: 0, miss: 0 },
+        velocity: { perfect: 0, great: 0, good: 0, miss: 0 },
+        pedal: { perfect: 0, great: 0, good: 0, miss: 0 },
+        combo: 0,
+        maxCombo: 0,
+      }, measureErrors: {} }
     case 'SET_BPM':
       return { ...state, bpmOverride: Math.max(20, Math.min(300, action.bpm)) }
     case 'SET_BPM_OVERRIDE_ENABLED':
@@ -178,6 +211,12 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, autoPlayVolume: Math.max(1, Math.min(100, action.volume)) }
     case 'SET_AUTO_PLAY_DELAY':
       return { ...state, autoPlayDelay: Math.max(-500, Math.min(500, action.delay)) }
+    case 'SET_VELOCITY_JUDGMENT':
+      return { ...state, velocityJudgmentEnabled: action.enabled }
+    case 'SET_PEDAL_JUDGMENT':
+      return { ...state, pedalJudgmentEnabled: action.enabled }
+    case 'SET_NOTE_OFF_JUDGMENT':
+      return { ...state, noteOffJudgmentEnabled: action.enabled }
     default:
       return state
   }
@@ -189,6 +228,7 @@ const PERSISTED_KEYS: (keyof PracticeState)[] = [
   'highlightRange', 'logicFps', 'renderFps',
   'verovioPageWidth', 'verovioPageHeight', 'verovioStaffSpacing', 'verovioNoteSpacing',
   'midiEnabled', 'midiDeviceId', 'highlightMode', 'autoPlayVolume', 'autoPlayDelay',
+  'velocityJudgmentEnabled', 'pedalJudgmentEnabled', 'noteOffJudgmentEnabled',
 ]
 
 export function PracticeProvider({ children }: { children: ReactNode }) {
@@ -215,6 +255,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     state.highlightRange, state.logicFps, state.renderFps,
     state.verovioPageWidth, state.verovioPageHeight, state.verovioStaffSpacing, state.verovioNoteSpacing,
     state.midiEnabled, state.midiDeviceId, state.highlightMode, state.autoPlayVolume, state.autoPlayDelay,
+    state.velocityJudgmentEnabled, state.pedalJudgmentEnabled, state.noteOffJudgmentEnabled,
   ])
   return (
     <PracticeStateContext.Provider value={state}>

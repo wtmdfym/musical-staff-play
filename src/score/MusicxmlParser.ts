@@ -1,4 +1,4 @@
-import type { ScoreData, ScoreEvent, MeasureEvent, StaffData, TempoPoint } from './ScoreTypes'
+import type { ScoreData, ScoreEvent, MeasureEvent, StaffData, TempoPoint, PedalEvent, Dynamics } from './ScoreTypes'
 
 function pitchToMidi(step: string, alter: number, octave: number): number {
   const stepMap: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
@@ -34,9 +34,11 @@ export function parseFromXml(xmlText: string): ScoreData {
   }
 
   const measures: MeasureEvent[] = []
+  const pedalEvents: PedalEvent[] = []
   let currentBeat = 0
   let divisions = 1
   let currentTimeSig: [number, number] = [4, 4]
+  let currentDynamics: Dynamics = 'mf'
   const tempoMap: TempoPoint[] = []
 
   // Try to extract tempo from <direction><sound tempo="..."/>
@@ -152,9 +154,37 @@ export function parseFromXml(xmlText: string): ScoreData {
           isRest: isRest,
           voice: voiceNum - 1,
           staffIndex: staffNum - 1,
+          dynamics: currentDynamics,
         }
 
         staffMap.get(staffNum)!.events.push(event)
+      } else if (child.tagName === 'direction') {
+        const pedalEl = child.querySelector('direction-type > pedal')
+        if (pedalEl) {
+          const pedalType = pedalEl.getAttribute('type') as 'start' | 'stop' | null
+          if (pedalType === 'start' || pedalType === 'stop') {
+            let minOffset = Infinity
+            for (const offset of offsetMap.values()) {
+              if (offset < minOffset) minOffset = offset
+            }
+            if (!isFinite(minOffset)) minOffset = 0
+            pedalEvents.push({
+              beat: currentBeat + minOffset,
+              type: pedalType,
+              measureIndex: mi,
+            })
+          }
+        }
+        const dynamicsEl = child.querySelector('direction-type > dynamics')
+        if (dynamicsEl) {
+          const markings = ['pp', 'p', 'mp', 'mf', 'f', 'ff'] as const
+          for (const m of markings) {
+            if (dynamicsEl.querySelector(m)) {
+              currentDynamics = m
+              break
+            }
+          }
+        }
       } else if (child.tagName === 'backup') {
         const dur = parseInt(child.querySelector('duration')?.textContent || '0', 10)
         const beatDur = dur / divisions
@@ -214,5 +244,6 @@ export function parseFromXml(xmlText: string): ScoreData {
     totalBeats,
     bpm,
     tempoMap,
+    pedalEvents,
   }
 }

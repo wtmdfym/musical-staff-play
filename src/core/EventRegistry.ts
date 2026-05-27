@@ -1,4 +1,4 @@
-import type { ScoreData, ScoreEvent } from '../score/ScoreTypes'
+import type { ScoreData, ScoreEvent, JudgmentType } from '../score/ScoreTypes'
 import { buildEventIndex } from '../score/ScoreEventIndex'
 import type { TempoClock } from '../playback/TempoClock'
 import type { HighlightColumn, HighlightColumnNote } from '../score/ScoreTypes'
@@ -9,6 +9,7 @@ export interface EventRegistryEntry {
   staffIndex: number
   noteIndex: number
   timeSec: number
+  durationSec: number
   svgId?: string
 }
 
@@ -20,18 +21,32 @@ interface ColumnGroup {
 export class EventRegistry {
   private _entries: EventRegistryEntry[] = []
   private _entryMap = new Map<string, EventRegistryEntry>()
-  private _judged = new Set<string>()
+  private _judged = new Map<string, Set<JudgmentType>>()
+
+  private _judgedKey(key: string): Set<JudgmentType> {
+    let s = this._judged.get(key)
+    if (!s) {
+      s = new Set()
+      this._judged.set(key, s)
+    }
+    return s
+  }
   private _columnGroups: ColumnGroup[] = []
 
   build(score: ScoreData, clock: TempoClock): void {
     const index = buildEventIndex(score)
-    this._entries = index.map(pe => ({
-      event: pe.event,
-      measureIndex: pe.measureIndex,
-      staffIndex: pe.staffIndex,
-      noteIndex: pe.noteIndex,
-      timeSec: clock.beatToTime(pe.event.time),
-    }))
+    this._entries = index.map(pe => {
+      const timeSec = clock.beatToTime(pe.event.time)
+      const releaseSec = clock.beatToTime(pe.event.time + pe.event.duration)
+      return {
+        event: pe.event,
+        measureIndex: pe.measureIndex,
+        staffIndex: pe.staffIndex,
+        noteIndex: pe.noteIndex,
+        timeSec,
+        durationSec: releaseSec - timeSec,
+      }
+    })
     this._entries.sort((a, b) => a.timeSec - b.timeSec)
     this._entryMap.clear()
     for (const e of this._entries) {
@@ -51,6 +66,8 @@ export class EventRegistry {
   updateTimes(clock: TempoClock): void {
     for (const e of this._entries) {
       e.timeSec = clock.beatToTime(e.event.time)
+      const releaseSec = clock.beatToTime(e.event.time + e.event.duration)
+      e.durationSec = releaseSec - e.timeSec
     }
     this._entries.sort((a, b) => a.timeSec - b.timeSec)
     this._buildColumnGroups()
@@ -68,12 +85,19 @@ export class EventRegistry {
     return this._entries.length
   }
 
-  markJudged(key: string): void {
-    this._judged.add(key)
+  markJudged(key: string, jtype?: JudgmentType): void {
+    if (!jtype) {
+      const s = this._judgedKey(key)
+      s.add('noteOn').add('noteOff').add('velocity')
+    } else {
+      this._judgedKey(key).add(jtype)
+    }
   }
 
-  isJudged(key: string): boolean {
-    return this._judged.has(key)
+  isJudged(key: string, jtype?: JudgmentType): boolean {
+    if (!this._judged.has(key)) return false
+    if (!jtype) return this._judged.get(key)!.size > 0
+    return this._judged.get(key)!.has(jtype)
   }
 
   reset(): void {

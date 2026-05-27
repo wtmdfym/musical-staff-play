@@ -943,3 +943,55 @@ g.note[data-judgment="miss"] > * {
   fill: #ef4444 !important;
   color: #ef4444 !important;
 }
+
+g.note[data-judgment-off="perfect"] > * {
+  stroke: #16a34a !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-off="great"] > * {
+  stroke: #3b82f6 !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-off="good"] > * {
+  stroke: #eab308 !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-off="miss"] > * {
+  stroke: #ef4444 !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-vel="perfect"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #16a34a;
+  position: absolute;
+  top: -4px;
+}
+
+g.note[data-judgment-vel="great"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #3b82f6;
+  position: absolute;
+  top: -4px;
+}
+
+g.note[data-judgment-vel="good"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #eab308;
+  position: absolute;
+  top: -4px;
+}
+
+g.note[data-judgment-vel="miss"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #ef4444;
+  position: absolute;
+  top: -4px;
+}

@@ -72,6 +72,9 @@ export default function ScoreView() {
     autoPlay,
     autoPlayVolume,
     autoPlayDelay,
+    velocityJudgmentEnabled,
+    pedalJudgmentEnabled,
+    noteOffJudgmentEnabled,
   } = state
 
   const [vrvReady, setVrvReady] = useState(() => getVerovioRenderer().isReady)
@@ -161,6 +164,9 @@ export default function ScoreView() {
       autoPlay,
       autoPlayVolume,
       autoPlayDelay,
+      velocityJudgmentEnabled,
+      pedalJudgmentEnabled,
+      noteOffJudgmentEnabled,
     })
   })
 

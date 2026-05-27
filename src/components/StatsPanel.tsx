@@ -13,9 +13,10 @@ function grade(acc: number): string {
 export default function StatsPanel() {
   const { state, dispatch } = usePractice()
   const { stats, playState } = state
+  const { noteOn } = stats
 
-  const total = stats.perfect + stats.great + stats.good + stats.miss
-  const accuracy = total > 0 ? Math.round((stats.perfect + stats.great) / total * 100) : 100
+  const total = noteOn.perfect + noteOn.great + noteOn.good + noteOn.miss
+  const accuracy = total > 0 ? Math.round((noteOn.perfect + noteOn.great) / total * 100) : 100
 
   const [comboFlash, setComboFlash] = useState(false)
   const prevComboRef = useRef(stats.combo)
@@ -40,10 +41,10 @@ export default function StatsPanel() {
         </span>
       </div>
       <div className="stats-row stats-detail">
-        <span className="stat-perfect">★ {stats.perfect}</span>
-        <span className="stat-great">● {stats.great}</span>
-        <span className="stat-good">● {stats.good}</span>
-        <span className="stat-miss">✗ {stats.miss}</span>
+        <span className="stat-perfect">★ {noteOn.perfect}</span>
+        <span className="stat-great">● {noteOn.great}</span>
+        <span className="stat-good">● {noteOn.good}</span>
+        <span className="stat-miss">✗ {noteOn.miss}</span>
       </div>
       <div className="stats-row">
         <span className="stats-acc">{accuracy}%</span>

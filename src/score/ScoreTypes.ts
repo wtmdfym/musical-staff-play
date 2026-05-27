@@ -1,3 +1,5 @@
+export type Dynamics = 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff'
+
 export interface ScoreEvent {
   pitch: number
   time: number
@@ -6,6 +8,13 @@ export interface ScoreEvent {
   isRest: boolean
   voice: number
   staffIndex: number
+  dynamics: Dynamics
+}
+
+export interface PedalEvent {
+  beat: number
+  type: 'start' | 'stop'
+  measureIndex: number
 }
 
 export interface StaffData {
@@ -32,6 +41,7 @@ export interface ScoreData {
   totalBeats: number
   bpm: number
   tempoMap: TempoPoint[]
+  pedalEvents: PedalEvent[]
 }
 
 export type DisplayMode = 'page' | 'scroll'
@@ -87,30 +97,45 @@ export interface PracticeState {
   autoPlay: boolean
   autoPlayVolume: number
   autoPlayDelay: number
+  velocityJudgmentEnabled: boolean
+  pedalJudgmentEnabled: boolean
+  noteOffJudgmentEnabled: boolean
   rawDocument: string | null
   documentFormat: 'musicxml' | 'mei' | null
 }
 
-export interface ScoreStats {
+export interface PerDimensionStats {
   perfect: number
   great: number
   good: number
   miss: number
+}
+
+export interface ScoreStats {
+  noteOn: PerDimensionStats
+  noteOff: PerDimensionStats
+  velocity: PerDimensionStats
+  pedal: PerDimensionStats
   combo: number
   maxCombo: number
 }
 
 export type JudgmentGrade = 'perfect' | 'great' | 'good' | 'miss'
 
+export type JudgmentType = 'noteOn' | 'noteOff' | 'velocity' | 'pedal'
+
 export interface JudgmentResult {
+  type: JudgmentType
   grade: JudgmentGrade
   pitch: number
   expectedPitch: number
   timingDelta: number
+  expectedValue?: number
   beat: number
   measureIndex: number
   noteIndex: number
   staffIndex: number
+  pedalType?: 'start' | 'stop'
 }
 
 export type PracticeAction =
@@ -155,3 +180,6 @@ export type PracticeAction =
   | { type: 'SET_AUTO_PLAY'; enabled: boolean }
   | { type: 'SET_AUTO_PLAY_VOLUME'; volume: number }
   | { type: 'SET_AUTO_PLAY_DELAY'; delay: number }
+  | { type: 'SET_VELOCITY_JUDGMENT'; enabled: boolean }
+  | { type: 'SET_PEDAL_JUDGMENT'; enabled: boolean }
+  | { type: 'SET_NOTE_OFF_JUDGMENT'; enabled: boolean }
