@@ -17,6 +17,8 @@ export class MidiInputManager {
   private _devices: MidiDeviceInfo[] = [];
   private _onStatusChange: ((status: MidiStatus) => void) | null = null;
   private _onNoteOn: ((pitch: number, velocity: number) => void) | null = null;
+  private _onNoteOff: ((pitch: number) => void) | null = null;
+  private _onControlChange: ((controller: number, value: number) => void) | null = null;
   private _onDevicesChange: ((devices: MidiDeviceInfo[]) => void) | null = null;
   private _stateChangeHandler: ((e: MIDIConnectionEvent) => void) | null = null;
 
@@ -39,6 +41,12 @@ export class MidiInputManager {
   }
   set onNoteOn(cb: ((pitch: number, velocity: number) => void) | null) {
     this._onNoteOn = cb;
+  }
+  set onNoteOff(cb: ((pitch: number) => void) | null) {
+    this._onNoteOff = cb;
+  }
+  set onControlChange(cb: ((controller: number, value: number) => void) | null) {
+    this._onControlChange = cb;
   }
   set onDevicesChange(cb: ((devices: MidiDeviceInfo[]) => void) | null) {
     this._onDevicesChange = cb;
@@ -63,6 +71,10 @@ export class MidiInputManager {
     const velocity = data[2];
     if (status === 0x90 && velocity > 0) {
       this._onNoteOn?.(pitch, velocity);
+    } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
+      this._onNoteOff?.(pitch);
+    } else if (status === 0xb0) {
+      this._onControlChange?.(pitch, velocity);
     }
   };
 

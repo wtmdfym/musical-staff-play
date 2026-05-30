@@ -26,13 +26,14 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = usePractice()
   const {
     zoom, displayMode, bpmOverrideEnabled, bpmOverride, speedRatio, measuresWindow,
-    emptyMeasures, playheadRatio, voiceColors, score, highlightLeadBeats,
+    emptyMeasures, voiceColors, score, highlightLeadBeats,
     highlightRange,
     verovioPageWidth, verovioPageHeight, verovioStaffSpacing, verovioNoteSpacing,
     logicFps, renderFps,
     midiEnabled, midiDeviceId,
     highlightMode,
     autoPlayVolume, autoPlayDelay,
+    velocityJudgmentEnabled, pedalJudgmentEnabled, noteOffJudgmentEnabled,
   } = state
   const defaultBpm = score?.bpm ?? 60
   const [bpmInput, setBpmInput] = useState(String(bpmOverride || defaultBpm))
@@ -68,7 +69,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     dispatch({ type: 'SET_SPEED_RATIO', ratio: 1 })
     dispatch({ type: 'SET_MEASURES_WINDOW', count: 4 })
     dispatch({ type: 'SET_EMPTY_MEASURES', count: 2 })
-    dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: 0.25 })
     dispatch({ type: 'SET_HIGHLIGHT_LEAD', beats: 0.5 })
     dispatch({ type: 'SET_HIGHLIGHT_RANGE', count: 2 })
     dispatch({ type: 'SET_LOGIC_FPS', fps: 60 })
@@ -81,6 +81,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     dispatch({ type: 'SET_MIDI_DEVICE_ID', deviceId: '' })
     dispatch({ type: 'SET_AUTO_PLAY_VOLUME', volume: 30 })
     dispatch({ type: 'SET_AUTO_PLAY_DELAY', delay: 0 })
+    dispatch({ type: 'SET_VELOCITY_JUDGMENT', enabled: false })
+    dispatch({ type: 'SET_PEDAL_JUDGMENT', enabled: false })
+    dispatch({ type: 'SET_NOTE_OFF_JUDGMENT', enabled: false })
     setBpmInput(String(defaultBpm))
   }
 
@@ -187,14 +190,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
             )}
 
             <div className="setting-row">
-              <label className="setting-label">Judgment Line</label>
-              <input type="range" min="0.1" max="0.5" step="0.01" value={playheadRatio}
-                onChange={(e) => dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: parseFloat(e.target.value) })}
-                className="zoom-slider" />
-              <span className="setting-value">{Math.round(playheadRatio * 100)}%</span>
-            </div>
-
-            <div className="setting-row">
               <label className="setting-label">Window</label>
               <select value={measuresWindow} onChange={(e) => dispatch({ type: 'SET_MEASURES_WINDOW', count: parseInt(e.target.value) })} className="setting-select">
                 {[2, 3, 4, 5, 6, 8, 12, 16].map((n) => <option key={n} value={n}>{n}</option>)}
@@ -221,6 +216,38 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
               <select value={highlightRange} onChange={(e) => dispatch({ type: 'SET_HIGHLIGHT_RANGE', count: parseInt(e.target.value) })} className="setting-select">
                 {[1, 2, 3, 4, 5, 6, 8].map((n) => <option key={n} value={n}>{n} columns</option>)}
               </select>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>判定维度</h3>
+            <div className="setting-row">
+              <label className="setting-label">Note On 判定</label>
+              <span className="setting-value">始终启用</span>
+            </div>
+            <div className="setting-row">
+              <label className="setting-label">Note Off / Duration</label>
+              <input
+                type="checkbox"
+                checked={noteOffJudgmentEnabled}
+                onChange={(e) => dispatch({ type: 'SET_NOTE_OFF_JUDGMENT', enabled: e.target.checked })}
+              />
+            </div>
+            <div className="setting-row">
+              <label className="setting-label">Velocity / 力度</label>
+              <input
+                type="checkbox"
+                checked={velocityJudgmentEnabled}
+                onChange={(e) => dispatch({ type: 'SET_VELOCITY_JUDGMENT', enabled: e.target.checked })}
+              />
+            </div>
+            <div className="setting-row">
+              <label className="setting-label">Pedal / 踏板</label>
+              <input
+                type="checkbox"
+                checked={pedalJudgmentEnabled}
+                onChange={(e) => dispatch({ type: 'SET_PEDAL_JUDGMENT', enabled: e.target.checked })}
+              />
             </div>
           </div>
 

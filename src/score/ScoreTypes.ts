@@ -1,3 +1,5 @@
+export type Dynamics = 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff'
+
 export interface ScoreEvent {
   pitch: number
   time: number
@@ -6,6 +8,13 @@ export interface ScoreEvent {
   isRest: boolean
   voice: number
   staffIndex: number
+  dynamics: Dynamics
+}
+
+export interface PedalEvent {
+  beat: number
+  type: 'start' | 'stop'
+  measureIndex: number
 }
 
 export interface StaffData {
@@ -32,6 +41,7 @@ export interface ScoreData {
   totalBeats: number
   bpm: number
   tempoMap: TempoPoint[]
+  pedalEvents: PedalEvent[]
 }
 
 export type DisplayMode = 'page' | 'scroll'
@@ -50,6 +60,18 @@ export interface HighlightColumn {
   notes: HighlightColumnNote[]
 }
 
+export interface MeasureErrorCounts {
+  noteOn: number
+  noteOff: number
+  velocity: number
+  pedal: number
+}
+
+export interface MeasureVelocityDeviation {
+  totalDeviation: number
+  count: number
+}
+
 export interface PracticeState {
   displayMode: DisplayMode
   zoom: number
@@ -63,14 +85,14 @@ export interface PracticeState {
   stats: ScoreStats
   showHeatmap: boolean
   highlightMeasure: number
-  measureErrors: Record<number, number>
+  measureErrors: Record<number, MeasureErrorCounts>
+  measureDeviations: Record<number, MeasureVelocityDeviation>
   bpmOverrideEnabled: boolean
   bpmOverride: number
   speedRatio: number
   measuresWindow: number
   emptyMeasures: number
   totalPages: number
-  playheadRatio: number
   voiceColors: Record<number, string>
   judgedNotes: Record<string, boolean>
   highlightLeadBeats: number
@@ -87,30 +109,45 @@ export interface PracticeState {
   autoPlay: boolean
   autoPlayVolume: number
   autoPlayDelay: number
+  velocityJudgmentEnabled: boolean
+  pedalJudgmentEnabled: boolean
+  noteOffJudgmentEnabled: boolean
   rawDocument: string | null
   documentFormat: 'musicxml' | 'mei' | null
 }
 
-export interface ScoreStats {
+export interface PerDimensionStats {
   perfect: number
   great: number
   good: number
   miss: number
+}
+
+export interface ScoreStats {
+  noteOn: PerDimensionStats
+  noteOff: PerDimensionStats
+  velocity: PerDimensionStats
+  pedal: PerDimensionStats
   combo: number
   maxCombo: number
 }
 
 export type JudgmentGrade = 'perfect' | 'great' | 'good' | 'miss'
 
+export type JudgmentType = 'noteOn' | 'noteOff' | 'velocity' | 'pedal'
+
 export interface JudgmentResult {
+  type: JudgmentType
   grade: JudgmentGrade
   pitch: number
   expectedPitch: number
   timingDelta: number
+  expectedValue?: number
   beat: number
   measureIndex: number
   noteIndex: number
   staffIndex: number
+  pedalType?: 'start' | 'stop'
 }
 
 export type PracticeAction =
@@ -137,7 +174,6 @@ export type PracticeAction =
   | { type: 'SET_MEASURES_WINDOW'; count: number }
   | { type: 'SET_EMPTY_MEASURES'; count: number }
   | { type: 'SET_TOTAL_PAGES'; total: number }
-  | { type: 'SET_PLAYHEAD_RATIO'; ratio: number }
   | { type: 'SET_VOICE_COLOR'; voice: number; color: string }
   | { type: 'LOAD_SETTINGS'; settings: Partial<PracticeState> }
   | { type: 'SET_HIGHLIGHT_LEAD'; beats: number }
@@ -155,3 +191,6 @@ export type PracticeAction =
   | { type: 'SET_AUTO_PLAY'; enabled: boolean }
   | { type: 'SET_AUTO_PLAY_VOLUME'; volume: number }
   | { type: 'SET_AUTO_PLAY_DELAY'; delay: number }
+  | { type: 'SET_VELOCITY_JUDGMENT'; enabled: boolean }
+  | { type: 'SET_PEDAL_JUDGMENT'; enabled: boolean }
+  | { type: 'SET_NOTE_OFF_JUDGMENT'; enabled: boolean }

@@ -736,6 +736,48 @@
   color: var(--text-h);
 }
 
+.heatmap-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.heatmap-tab {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.heatmap-tab:hover {
+  background: var(--hover);
+}
+
+.heatmap-tab.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.heatmap-tab.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.heatmap-empty {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--text);
+  opacity: 0.5;
+  font-size: 13px;
+}
+
 .heatmap-grid {
   display: flex;
   gap: 4px;
@@ -942,4 +984,56 @@ g.note[data-judgment="good"] > * {
 g.note[data-judgment="miss"] > * {
   fill: #ef4444 !important;
   color: #ef4444 !important;
+}
+
+g.note[data-judgment-off="perfect"] > * {
+  stroke: #16a34a !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-off="great"] > * {
+  stroke: #3b82f6 !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-off="good"] > * {
+  stroke: #eab308 !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-off="miss"] > * {
+  stroke: #ef4444 !important;
+  stroke-width: 3 !important;
+}
+
+g.note[data-judgment-vel="perfect"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #16a34a;
+  position: absolute;
+  top: -4px;
+}
+
+g.note[data-judgment-vel="great"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #3b82f6;
+  position: absolute;
+  top: -4px;
+}
+
+g.note[data-judgment-vel="good"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #eab308;
+  position: absolute;
+  top: -4px;
+}
+
+g.note[data-judgment-vel="miss"]::after {
+  content: "●";
+  font-size: 8px;
+  fill: #ef4444;
+  position: absolute;
+  top: -4px;
 }

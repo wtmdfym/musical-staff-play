@@ -1,7 +1,7 @@
 import type { ScoreData } from '../score/ScoreTypes'
 
 function note(pitch: number, time: number, duration: number, measureIndex: number) {
-  return { pitch, time, duration, measureIndex, isRest: false, voice: 0, staffIndex: 0 }
+  return { pitch, time, duration, measureIndex, isRest: false, voice: 0, staffIndex: 0, dynamics: 'mf' as const }
 }
 
 const BPM = 120
@@ -10,6 +10,7 @@ const MEASURES: ScoreData = {
   bpm: BPM,
   totalBeats: 20,
   tempoMap: [{ time: 0, bpm: BPM }],
+  pedalEvents: [],
   measures: [
     {
       index: 0,

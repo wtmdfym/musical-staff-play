@@ -38,6 +38,14 @@ _Avoid_: system, line
 Determines the pitch mapping of Staff lines. Either treble or bass.
 _Avoid_: key
 
+**Pedal**:
+The sustain (damper) pedal, MIDI CC 64. Represented in MusicXML as `<pedal type="start"/>` / `<pedal type="stop"/>` inside `<direction>` elements. Extracted by the parser as **PedalEvent** entries: onset beat, type (start or stop), and measure index. The pedal is global—it affects all voices and staves on the same MIDI channel.
+_Avoid_: sostenuto, soft pedal, una corda
+
+**Dynamics**:
+A dynamic marking (pp, p, mp, mf, f, ff) that applies to a note or passage. Parsed from MusicXML `<direction><dynamics>` elements. Attached directly to each ScoreEvent as a `dynamics` field. In the absence of any marking, defaults to `mf`. Each marking maps to a MIDI velocity range for Judgment purposes.
+_Avoid_: volume, loudness
+
 ### Playback
 
 **AutoPlay**:
@@ -60,18 +68,39 @@ _Avoid_: fixed BPM, forced tempo
 A multiplier applied to the Score's Tempo map to speed up or slow down playback. `1.0` = original speed. Only active when Tempo Override is disabled.
 _Avoid_: playback rate, tempo scale
 
-**Playhead**:
-The visual cursor showing the current playback position. In scroll mode, a horizontal line at a configurable screen ratio. In page mode, a vertical line sweeping across the page.
-_Avoid_: cursor, indicator, needle
+### Input
+
+**Note On**:
+A MIDI message (status 0x90, velocity > 0) indicating a key press. The primary input that triggers a Judgment. Carries pitch and velocity.
+_Avoid_: keypress, keydown
+
+**Note Off**:
+A MIDI message (status 0x80, or 0x90 with velocity = 0) indicating a key release. Triggers a Note Off Judgment to evaluate Duration accuracy. When the Pedal is down, Note Off events are deferred until the pedal is released.
+_Avoid_: keyup, release
+
+**Control Change (CC)**:
+A MIDI message (status 0xB0) carrying a controller number and value. CC 64 is the sustain Pedal. Other CC numbers are ignored.
+_Avoid_: controller, cc message
+
+**Active Note Set**:
+Held by the JudgmentEngine. Tracks which pitches are currently sounding, maintained by Note On/Off events and Pedal state. When the Pedal is down, Note Off events do not remove entries from the Active Note Set. When the Pedal is released, all pedal-sustained notes are removed simultaneously and receive deferred Note Off Judgments.
+_Avoid_: playing notes, held keys
 
 ### Judgment
 
 **Judgment**:
-The act of comparing an input note (from keyboard or MIDI) against an expected Event in the Score. Produces a Grade based on pitch match and timing delta.
+The act of comparing user input (pitch, timing, velocity, pedal action) against expected values from the Score. Each user action produces one or more **Judgment Results** — one per applicable Judgment Type. Judgments are produced in five Type dimensions: noteOn, noteOff, velocity, and pedal.
 _Avoid_: evaluation, scoring, grading
 
+**Judgment Type**:
+The dimension being judged. One of: `noteOn` (key press timing + pitch match), `noteOff` (key release timing → Duration accuracy), `velocity` (key velocity vs expected Dynamics range), or `pedal` (pedal start/stop timing vs PedalEvent markings). Each Type produces its own independent JudgmentResult with its own Grade.
+
 **Grade**:
-The result of a Judgment. One of: `perfect` (within 40ms), `great` (80ms), `good` (120ms), or `miss` (beyond 120ms or wrong pitch).
+The result of a single Judgment. One of: `perfect`, `great`, `good`, or `miss`. Timing windows vary by Judgment Type:
+- **noteOn**: perfect ≤40ms, great ≤80ms, good ≤120ms, miss >120ms (or wrong pitch)
+- **noteOff**: same timing windows, applied to Duration delta (actual release − expected release)
+- **velocity**: perfect ≤16 MIDI units deviation from expected range midpoint, great ≤32, good ≤48, miss >48
+- **pedal**: same timing windows as noteOn, applied to pedal action delta vs PedalEvent beat
 _Avoid_: score, rating, level
 
 **Column**:
@@ -79,8 +108,12 @@ A set of Events at the same beat position that are played together. Highlighting
 _Avoid_: group, stack, cluster
 
 **Combo**:
-A streak of consecutive non-miss Judgments. Tracks current and maximum streak length. Resets to zero on any miss.
+A streak of consecutive non-miss noteOn Judgments. Tracks current and maximum streak length. Resets to zero only on a noteOn miss. noteOff, velocity, and pedal misses do not break the Combo.
 _Avoid_: streak, chain
+
+**Duration**:
+The time a note is held by the user, measured from Note On to Note Off. Assessed against the ScoreEvent's expected duration (onset time + duration in beats, converted to seconds via TempoClock). When the Pedal is active, the note is considered "held" until either the pedal is released (deferred Note Off) or the user releases the key after pedal release. Duration is a component of the noteOff Judgment Type.
+_Avoid_: hold time, sustain time
 
 ### Rendering
 
@@ -89,7 +122,7 @@ Displays one page of the Score at a time. Navigation via arrow keys or automatic
 _Avoid_: single-page, paged
 
 **Scroll Mode**:
-Displays the entire Score as a continuous vertical strip. The Playhead is fixed on screen; the Score scrolls past it.
+Displays the entire Score as a continuous vertical strip. The Score scrolls vertically past a fixed screen anchor point.
 _Avoid_: continuous, rolling
 
 **Highlight**:
@@ -101,7 +134,7 @@ A semi-transparent rounded rectangle rendered as an SVG overlay `<rect>` on top 
 _Avoid_: rectangle, overlay, marker
 
 **Feedback**:
-Visual response shown after a Judgment. Includes both per-note styling on the Score SVG (via CSS data attributes) and optional center-screen floating text (combo streak text and grade indicators).
+Visual response shown after a Judgment. Includes both per-note styling on the Score SVG (via CSS data attributes) and optional center-screen floating text (combo streak text and grade indicators). Multi-dimensional Feedback uses different CSS properties per Judgment Type: noteOn → `fill`, noteOff → `stroke`, velocity → overlay marker element. Pedal judgments appear only in the Stats panel, not on the SVG.
 _Avoid_: notification, popup, alert
 
 **Zoom**:
@@ -126,6 +159,8 @@ _Avoid_: callback, handler
 
 - **"Event"** — used both for ScoreData events (notes/rests from the parser) and Verovio timemap events (position records with SVG IDs). Context disambiguates. When mapping between them, use explicit names: **ScoreEvent** and **TimemapElement**.
 
+- **"Judgment"** — previously unidimensional (one Grade per note input). Now multi-dimensional: a single user action (key press, key release, pedal toggle) produces one Judgment per applicable Type. Use **JudgmentResult** (the output object with a `type` field) and **Judgment Type** (the dimension: noteOn, noteOff, velocity, pedal) to disambiguate.
+
 ## Dialogue
 
 > **Dev**: "When a note is judged perfect, what should happen visually?"
@@ -142,3 +177,12 @@ _Avoid_: callback, handler
 >
 > **Dev**: "Does AutoPlay sound notes during the empty-measures countdown?"
 > **Domain expert**: "No. AutoPlay respects the empty-measures visual countdown period. The first note sounds when the playhead reaches beat 0 of the score, aligned with the visual scroll. This gives the viewer time to orient to the staff before notes begin."
+>
+> **Dev**: "Does a velocity miss break the combo?"
+> **Domain expert**: "No. Only a noteOn miss breaks the combo. Velocity, noteOff, and pedal misses are quality feedback — they don't interrupt the correctness streak."
+>
+> **Dev**: "What happens when the pedal is down and the user releases a key?"
+> **Domain expert**: "The Note Off is deferred. The Active Note Set keeps tracking it as held. When the pedal is finally released, all pedal-sustained notes are released at once. Each gets a Note Off Judgment with the pedal-release time as the actual Note Off time, compared against each note's expected release time from the Score."
+>
+> **Dev**: "What if a score has no dynamics markings?"
+> **Domain expert**: "Every ScoreEvent defaults to `mf` dynamics. This maps to MIDI velocity range 64–79, midpoint 71.5. All velocity Judgments are relative to this default, so the system works gracefully on scores without explicit dynamics."

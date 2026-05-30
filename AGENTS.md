@@ -106,9 +106,12 @@ Timing windows: perfect ≤40ms, great ≤80ms, good ≤120ms, miss >120ms or be
 
 Visit links of API for reference when you need to use it.
 
-- `Verovio toolkit`: https://book.verovio.org/toolkit-reference/toolkit-methods.html
+- [`Verovio toolkit`](https://book.verovio.org/toolkit-reference/toolkit-methods.html)
+- [`Web MIDI`](https://webaudio.github.io/web-midi-api/)
 
 ## Test Data
+
+Use vitest to build xxx.test.js
 
 - `MusicXML`: tests\BasicTest.musicxml
 
