@@ -47,13 +47,13 @@ const initialState: PracticeState = {
   showHeatmap: false,
   highlightMeasure: -1,
   measureErrors: {},
+  measureDeviations: {},
   bpmOverrideEnabled: false,
   bpmOverride: 0,
   speedRatio: 1,
   measuresWindow: 4,
   emptyMeasures: 2,
   totalPages: 1,
-  playheadRatio: 0.25,
   voiceColors: { ...DEFAULT_VOICE_COLORS },
   judgedNotes: {},
   highlightLeadBeats: 0.5,
@@ -85,7 +85,7 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
     case 'SET_ZOOM':
       return { ...state, zoom: Math.max(0.25, Math.min(3, action.zoom)) }
     case 'PLAY':
-      return { ...state, playState: 'playing' }
+      return { ...state, playState: 'playing', showHeatmap: false }
     case 'PAUSE':
       return { ...state, playState: 'paused' }
     case 'STOP':
@@ -119,6 +119,7 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
     maxCombo: 0,
   },
         measureErrors: {},
+        measureDeviations: {},
       }
     case 'SET_RANGE_START':
       return { ...state, rangeStart: Math.max(0, Math.min(state.rangeEnd, action.start)) }
@@ -141,18 +142,42 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       stats[dim][action.result.grade]++
       const key = `${action.result.measureIndex}:${action.result.noteIndex}`
       const judgedNotes = { ...state.judgedNotes, [key]: true }
+      const mIdx = action.result.measureIndex
+
+      let measureErrors = state.measureErrors
+      let measureDeviations = state.measureDeviations
+
+      if (action.result.grade === 'miss') {
+        measureErrors = { ...state.measureErrors }
+        if (!measureErrors[mIdx]) {
+          measureErrors[mIdx] = { noteOn: 0, noteOff: 0, velocity: 0, pedal: 0 }
+        } else {
+          measureErrors[mIdx] = { ...measureErrors[mIdx] }
+        }
+        measureErrors[mIdx][dim]++
+      }
+
+      if (dim === 'velocity') {
+        measureDeviations = { ...state.measureDeviations }
+        if (!measureDeviations[mIdx]) {
+          measureDeviations[mIdx] = { totalDeviation: action.result.timingDelta, count: 1 }
+        } else {
+          measureDeviations[mIdx] = {
+            totalDeviation: measureDeviations[mIdx].totalDeviation + action.result.timingDelta,
+            count: measureDeviations[mIdx].count + 1,
+          }
+        }
+      }
+
       if (dim === 'noteOn' && action.result.grade !== 'miss') {
         stats.combo++
         if (stats.combo > stats.maxCombo) stats.maxCombo = stats.combo
-        return { ...state, stats, judgedNotes }
+        return { ...state, stats, judgedNotes, measureErrors, measureDeviations }
       } else if (dim === 'noteOn') {
         stats.combo = 0
-        const mIdx = action.result.measureIndex
-        const measureErrors = { ...state.measureErrors }
-        measureErrors[mIdx] = (measureErrors[mIdx] || 0) + 1
-        return { ...state, stats, measureErrors, judgedNotes }
+        return { ...state, stats, measureErrors, judgedNotes, measureDeviations }
       }
-      return { ...state, stats, judgedNotes }
+      return { ...state, stats, judgedNotes, measureErrors, measureDeviations }
     }
     case 'RESET_STATS':
       return { ...state, stats: {
@@ -162,7 +187,7 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
         pedal: { perfect: 0, great: 0, good: 0, miss: 0 },
         combo: 0,
         maxCombo: 0,
-      }, measureErrors: {} }
+      }, measureErrors: {}, measureDeviations: {} }
     case 'SET_BPM':
       return { ...state, bpmOverride: Math.max(20, Math.min(300, action.bpm)) }
     case 'SET_BPM_OVERRIDE_ENABLED':
@@ -175,8 +200,6 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, emptyMeasures: Math.max(0, Math.min(8, action.count)) }
     case 'SET_TOTAL_PAGES':
       return { ...state, totalPages: Math.max(1, action.total) }
-    case 'SET_PLAYHEAD_RATIO':
-      return { ...state, playheadRatio: Math.max(0.1, Math.min(0.5, action.ratio)) }
     case 'SET_VOICE_COLOR':
       return { ...state, voiceColors: { ...state.voiceColors, [action.voice]: action.color } }
     case 'LOAD_SETTINGS':
@@ -223,7 +246,7 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
 }
 
 const PERSISTED_KEYS: (keyof PracticeState)[] = [
-  'zoom', 'playheadRatio', 'measuresWindow', 'emptyMeasures',
+  'zoom', 'measuresWindow', 'emptyMeasures',
   'bpmOverrideEnabled', 'bpmOverride', 'speedRatio', 'voiceColors', 'displayMode', 'highlightLeadBeats',
   'highlightRange', 'logicFps', 'renderFps',
   'verovioPageWidth', 'verovioPageHeight', 'verovioStaffSpacing', 'verovioNoteSpacing',
@@ -249,7 +272,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    state.zoom, state.playheadRatio, state.measuresWindow, state.emptyMeasures,
+    state.zoom, state.measuresWindow, state.emptyMeasures,
     state.bpmOverrideEnabled, state.bpmOverride, state.speedRatio, state.voiceColors,
     state.displayMode, state.highlightLeadBeats,
     state.highlightRange, state.logicFps, state.renderFps,

@@ -68,10 +68,6 @@ _Avoid_: fixed BPM, forced tempo
 A multiplier applied to the Score's Tempo map to speed up or slow down playback. `1.0` = original speed. Only active when Tempo Override is disabled.
 _Avoid_: playback rate, tempo scale
 
-**Playhead**:
-The visual cursor showing the current playback position. In scroll mode, a horizontal line at a configurable screen ratio. In page mode, a vertical line sweeping across the page.
-_Avoid_: cursor, indicator, needle
-
 ### Input
 
 **Note On**:
@@ -126,7 +122,7 @@ Displays one page of the Score at a time. Navigation via arrow keys or automatic
 _Avoid_: single-page, paged
 
 **Scroll Mode**:
-Displays the entire Score as a continuous vertical strip. The Playhead is fixed on screen; the Score scrolls past it.
+Displays the entire Score as a continuous vertical strip. The Score scrolls vertically past a fixed screen anchor point.
 _Avoid_: continuous, rolling
 
 **Highlight**:

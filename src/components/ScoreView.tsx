@@ -42,7 +42,6 @@ const SvgRenderer = memo(function SvgRenderer({ svgContent }: { svgContent: stri
 export default function ScoreView() {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgWrapRef = useRef<HTMLDivElement>(null)
-  const playheadRef = useRef<HTMLDivElement>(null)
 
   const { state, dispatch } = usePractice()
   const {
@@ -52,7 +51,6 @@ export default function ScoreView() {
     score,
     playState,
     emptyMeasures,
-    playheadRatio,
     highlightLeadBeats,
     highlightRange,
     midiEnabled,
@@ -85,6 +83,7 @@ export default function ScoreView() {
         switch (event.type) {
           case 'playback-ended':
             dispatch({ type: 'STOP' })
+            dispatch({ type: 'SHOW_HEATMAP' })
             break
           case 'scroll-offset-changed':
             dispatch({ type: 'SET_SCROLL_OFFSET', offset: event.offset })
@@ -107,7 +106,6 @@ export default function ScoreView() {
     glInstance.init(eventSink, {
       container: containerRef,
       svgWrap: svgWrapRef,
-      playhead: playheadRef,
     })
     return () => {
       glInstance.destroy()
@@ -149,7 +147,6 @@ export default function ScoreView() {
     glInstance.setConfig({
       displayMode,
       emptyMeasures,
-      playheadRatio,
       highlightLeadBeats,
       highlightRange,
       midiEnabled,
@@ -258,17 +255,6 @@ export default function ScoreView() {
           <SvgRenderer svgContent={svgContent} />
         </div>
       )}
-
-      <div
-        ref={playheadRef}
-        style={{
-          position: "absolute",
-          pointerEvents: "none",
-          zIndex: 10,
-          background: "#ef4444",
-          display: "none",
-        }}
-      />
 
       {displayMode === "page" && totalPages > 0 && (
         <div style={{

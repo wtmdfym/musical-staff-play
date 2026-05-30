@@ -29,7 +29,6 @@ import type { DisplayMode } from '../score/ScoreTypes'
 export interface GameLoopConfig {
   displayMode: DisplayMode;
   emptyMeasures: number;
-  playheadRatio: number;
   highlightLeadBeats: number;
   highlightRange: number;
   midiEnabled: boolean;
@@ -52,7 +51,6 @@ export interface GameLoopConfig {
 export interface GameLoopDomRefs {
   container: { current: HTMLDivElement | null };
   svgWrap: { current: HTMLDivElement | null };
-  playhead: { current: HTMLDivElement | null };
 }
 
 export class GameLoop {
@@ -88,7 +86,6 @@ export class GameLoop {
   private _config: GameLoopConfig = {
     displayMode: "page",
     emptyMeasures: 2,
-    playheadRatio: 0.25,
     highlightLeadBeats: 0.5,
     highlightRange: 2,
     midiEnabled: false,
@@ -544,7 +541,6 @@ export class GameLoop {
         displayBeat,
         totalBeats: this._score.totalBeats,
         totalWithEmpty: this._totalWithEmpty,
-        playheadRatio: this._config.playheadRatio,
         vrvPageCount: this._vrvPageCount,
         currentPage: this._config.currentPage,
       });
@@ -558,8 +554,6 @@ export class GameLoop {
       }
 
       this._updateHighlights(displayBeat);
-    } else {
-      this._viewportPositioner.hidePlayhead();
     }
   }
 

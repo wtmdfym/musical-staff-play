@@ -60,6 +60,18 @@ export interface HighlightColumn {
   notes: HighlightColumnNote[]
 }
 
+export interface MeasureErrorCounts {
+  noteOn: number
+  noteOff: number
+  velocity: number
+  pedal: number
+}
+
+export interface MeasureVelocityDeviation {
+  totalDeviation: number
+  count: number
+}
+
 export interface PracticeState {
   displayMode: DisplayMode
   zoom: number
@@ -73,14 +85,14 @@ export interface PracticeState {
   stats: ScoreStats
   showHeatmap: boolean
   highlightMeasure: number
-  measureErrors: Record<number, number>
+  measureErrors: Record<number, MeasureErrorCounts>
+  measureDeviations: Record<number, MeasureVelocityDeviation>
   bpmOverrideEnabled: boolean
   bpmOverride: number
   speedRatio: number
   measuresWindow: number
   emptyMeasures: number
   totalPages: number
-  playheadRatio: number
   voiceColors: Record<number, string>
   judgedNotes: Record<string, boolean>
   highlightLeadBeats: number
@@ -162,7 +174,6 @@ export type PracticeAction =
   | { type: 'SET_MEASURES_WINDOW'; count: number }
   | { type: 'SET_EMPTY_MEASURES'; count: number }
   | { type: 'SET_TOTAL_PAGES'; total: number }
-  | { type: 'SET_PLAYHEAD_RATIO'; ratio: number }
   | { type: 'SET_VOICE_COLOR'; voice: number; color: string }
   | { type: 'LOAD_SETTINGS'; settings: Partial<PracticeState> }
   | { type: 'SET_HIGHLIGHT_LEAD'; beats: number }

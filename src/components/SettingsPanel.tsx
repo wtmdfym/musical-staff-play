@@ -26,7 +26,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = usePractice()
   const {
     zoom, displayMode, bpmOverrideEnabled, bpmOverride, speedRatio, measuresWindow,
-    emptyMeasures, playheadRatio, voiceColors, score, highlightLeadBeats,
+    emptyMeasures, voiceColors, score, highlightLeadBeats,
     highlightRange,
     verovioPageWidth, verovioPageHeight, verovioStaffSpacing, verovioNoteSpacing,
     logicFps, renderFps,
@@ -69,7 +69,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     dispatch({ type: 'SET_SPEED_RATIO', ratio: 1 })
     dispatch({ type: 'SET_MEASURES_WINDOW', count: 4 })
     dispatch({ type: 'SET_EMPTY_MEASURES', count: 2 })
-    dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: 0.25 })
     dispatch({ type: 'SET_HIGHLIGHT_LEAD', beats: 0.5 })
     dispatch({ type: 'SET_HIGHLIGHT_RANGE', count: 2 })
     dispatch({ type: 'SET_LOGIC_FPS', fps: 60 })
@@ -189,14 +188,6 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
                 <span className="setting-value">{Math.round(speedRatio * 100)}%</span>
               </div>
             )}
-
-            <div className="setting-row">
-              <label className="setting-label">Judgment Line</label>
-              <input type="range" min="0.1" max="0.5" step="0.01" value={playheadRatio}
-                onChange={(e) => dispatch({ type: 'SET_PLAYHEAD_RATIO', ratio: parseFloat(e.target.value) })}
-                className="zoom-slider" />
-              <span className="setting-value">{Math.round(playheadRatio * 100)}%</span>
-            </div>
 
             <div className="setting-row">
               <label className="setting-label">Window</label>
