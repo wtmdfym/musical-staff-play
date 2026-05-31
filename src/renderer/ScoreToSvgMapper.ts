@@ -1,5 +1,6 @@
 import type { VerovioRenderer } from './VerovioEngine'
 import { midiToPnameOct, PITCH_NAMES } from './pitchUtils'
+import { getNotesInLayer } from '../feedback/OverlayManager'
 
 export interface MappableEvent {
   measureIndex: number
@@ -34,22 +35,6 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
       return cl ? cl.contains(cls) : false
     }
 
-    function collectNotesInLayer(layer: Element): Element[] {
-      const out: Element[] = []
-      const stack: Element[] = [layer]
-      while (stack.length) {
-        const el = stack.pop()!
-        if (hasClass(el, 'note')) {
-          out.push(el)
-          continue
-        }
-        for (let i = 0; i < el.children.length; i++) {
-          stack.push(el.children[i])
-        }
-      }
-      return out
-    }
-
     for (const svg of svgs) {
       const doc = parser.parseFromString(svg, 'image/svg+xml')
       const measures = doc.querySelectorAll('.measure')
@@ -69,7 +54,7 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
           }
           for (let li = 0; li < layers.length; li++) {
             const layer = layers[li]
-            const notes = collectNotesInLayer(layer)
+            const notes = getNotesInLayer(layer, false)
             for (const noteEl of notes) {
               const id = noteEl.id
               if (!id) continue

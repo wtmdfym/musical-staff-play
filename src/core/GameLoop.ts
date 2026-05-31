@@ -18,6 +18,7 @@ import {
   type HighlightRenderer,
 } from "../feedback/HighlightRenderer";
 import { BoxHighlightRenderer } from "../feedback/BoxHighlightRenderer";
+import { getOverlayManager } from "../feedback/OverlayManager";
 import {
   getVerovioRenderer,
   type VerovioRenderer,
@@ -137,7 +138,8 @@ export class GameLoop {
     this._eventSink = eventSink;
     this._viewportPositioner.bind(domRefs);
 
-    this._boxRenderer = new BoxHighlightRenderer(domRefs.svgWrap);
+    getOverlayManager().bind(domRefs.svgWrap);
+    this._boxRenderer = new BoxHighlightRenderer();
     this._syncHighlightRenderer();
 
     this._pipeline.setDisplayMode(this._config.displayMode);
@@ -167,6 +169,8 @@ export class GameLoop {
       this._rafId = 0;
     }
     this._autoPlayer.reset();
+    this._jd.clear();
+    getOverlayManager().unbind();
     this._eventSink = null;
   }
 

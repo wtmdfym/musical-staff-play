@@ -1013,74 +1013,76 @@ g.note.highlight-preview > * {
   stroke-dasharray: 4 3;
 }
 
-g.note[data-judgment="perfect"] > * {
-  fill: #16a34a !important;
-  color: #16a34a !important;
+/* ── Judgment Overlay Styles ── */
+
+.jd-perfect {
+  fill: rgba(22, 163, 74, 0.18);
+  stroke: #16a34a;
+  stroke-width: 1.5;
 }
 
-g.note[data-judgment="great"] > * {
-  fill: #3b82f6 !important;
-  color: #3b82f6 !important;
+.jd-great {
+  fill: rgba(59, 130, 246, 0.18);
+  stroke: #3b82f6;
+  stroke-width: 1.5;
 }
 
-g.note[data-judgment="good"] > * {
-  fill: #eab308 !important;
-  color: #eab308 !important;
+.jd-good {
+  fill: rgba(234, 179, 8, 0.18);
+  stroke: #eab308;
+  stroke-width: 1.5;
 }
 
-g.note[data-judgment="miss"] > * {
-  fill: #ef4444 !important;
-  color: #ef4444 !important;
+.jd-miss {
+  fill: rgba(239, 68, 68, 0.18);
+  stroke: #ef4444;
+  stroke-width: 1.5;
 }
 
-g.note[data-judgment-off="perfect"] > * {
-  stroke: #16a34a !important;
-  stroke-width: 3 !important;
+.jd-off-perfect {
+  fill: none;
+  stroke: #16a34a;
+  stroke-width: 2.5;
 }
 
-g.note[data-judgment-off="great"] > * {
-  stroke: #3b82f6 !important;
-  stroke-width: 3 !important;
+.jd-off-great {
+  fill: none;
+  stroke: #3b82f6;
+  stroke-width: 2.5;
 }
 
-g.note[data-judgment-off="good"] > * {
-  stroke: #eab308 !important;
-  stroke-width: 3 !important;
+.jd-off-good {
+  fill: none;
+  stroke: #eab308;
+  stroke-width: 2.5;
 }
 
-g.note[data-judgment-off="miss"] > * {
-  stroke: #ef4444 !important;
-  stroke-width: 3 !important;
+.jd-off-miss {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 2.5;
 }
 
-g.note[data-judgment-vel="perfect"]::after {
-  content: "●";
-  font-size: 8px;
+.jd-vel-perfect {
   fill: #16a34a;
-  position: absolute;
-  top: -4px;
+  stroke: #fff;
+  stroke-width: 1;
 }
 
-g.note[data-judgment-vel="great"]::after {
-  content: "●";
-  font-size: 8px;
+.jd-vel-great {
   fill: #3b82f6;
-  position: absolute;
-  top: -4px;
+  stroke: #fff;
+  stroke-width: 1;
 }
 
-g.note[data-judgment-vel="good"]::after {
-  content: "●";
-  font-size: 8px;
+.jd-vel-good {
   fill: #eab308;
-  position: absolute;
-  top: -4px;
+  stroke: #fff;
+  stroke-width: 1;
 }
 
-g.note[data-judgment-vel="miss"]::after {
-  content: "●";
-  font-size: 8px;
+.jd-vel-miss {
   fill: #ef4444;
-  position: absolute;
-  top: -4px;
+  stroke: #fff;
+  stroke-width: 1;
 }
