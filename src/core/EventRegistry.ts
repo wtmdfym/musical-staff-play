@@ -1,7 +1,7 @@
 import type { ScoreData, ScoreEvent, JudgmentType } from '../score/ScoreTypes'
 import { buildEventIndex } from '../score/ScoreEventIndex'
 import type { TempoClock } from '../playback/TempoClock'
-import type { HighlightColumn, HighlightColumnNote } from '../score/ScoreTypes'
+import type { ScoreColumn, ScoreColumnNote } from '../score/ScoreTypes'
 
 export interface EventRegistryEntry {
   event: ScoreEvent
@@ -108,8 +108,8 @@ export class EventRegistry {
     return this._judged.size
   }
 
-  getUpcomingColumns(fromBeat: number, leadBeats: number, maxColumns: number): HighlightColumn[] {
-    const columns: HighlightColumn[] = []
+  getUpcomingColumns(fromBeat: number, leadBeats: number, maxColumns: number): ScoreColumn[] {
+    const columns: ScoreColumn[] = []
 
     let startIdx = this._binarySearchColumn(fromBeat)
     if (startIdx < 0) startIdx = 0
@@ -120,13 +120,13 @@ export class EventRegistry {
 
       if (!this._groupHasUnjudged(group)) continue
 
-      const notes: HighlightColumnNote[] = []
+      const notes: ScoreColumnNote[] = []
       for (const ei of group.entryIndices) {
         const fe = this._entries[ei]
-        if (fe.svgId) {
-          notes.push({ svgId: fe.svgId, staffIndex: fe.staffIndex, voice: fe.event.voice })
-        }
+        const key = `${fe.measureIndex}:${fe.staffIndex}:${fe.noteIndex}`
+        notes.push({ eventKey: key, staffIndex: fe.staffIndex, voice: fe.event.voice })
       }
+      if (notes.length === 0) continue
       columns.push({ notes })
       if (columns.length > maxColumns) break
     }

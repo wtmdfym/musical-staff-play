@@ -13,7 +13,7 @@ export function useFpsMonitor(): { logicFps: number; renderFps: number } {
     if (!_sharedInterval) {
       _sharedInterval = setInterval(() => {
         const gl = getGameLoop()
-        setFps({ logicFps: gl.logicFpsActual, renderFps: gl.renderFpsActual })
+        setFps({ logicFps: gl.logicFpsActual, renderFps: 0 })
       }, POLL_MS)
     }
     return () => {

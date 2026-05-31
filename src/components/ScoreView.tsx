@@ -1,21 +1,17 @@
-import { useRef, useEffect, useMemo, useState, useCallback } from "react"
+import { useRef, useEffect, useState, useCallback } from "react"
 import { usePractice } from "../context/usePractice"
 import { getGameLoop } from "../core/GameLoop"
-import { getVerovioRenderer } from "../renderer/VerovioEngine"
 import type { PlaybackEventSink } from "../core/PlaybackEvents"
+import { ScoreRenderer } from "../renderer/ScoreRenderer"
 import { parseFromXml } from "../score/MusicxmlParser"
 import { getRecentFiles, addRecentFile } from "../data/recentFiles"
 import { loadScoreFromFile } from "../score/loadScoreFile"
 
 const glInstance = getGameLoop()
 
-let _svgContentRecomputeCount = 0
-let _setConfigCallCount = 0
-let _domMutHitCount = 0
-
 export default function ScoreView() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const svgWrapRef = useRef<HTMLDivElement>(null)
+  const rendererRef = useRef<ScoreRenderer | null>(null)
 
   const { state, dispatch } = usePractice()
   const {
@@ -39,8 +35,6 @@ export default function ScoreView() {
     speedRatio,
     logicFps,
     renderFps,
-    totalPages,
-    highlightMode,
     autoPlay,
     autoPlayVolume,
     autoPlayDelay,
@@ -52,8 +46,8 @@ export default function ScoreView() {
   } = state
 
   const [committedZoom, setCommittedZoom] = useState(zoom)
-  const [layoutVersion, setLayoutVersion] = useState(0)
-  const prevConfigKeyRef = useRef('')
+  const prevGlConfigKeyRef = useRef('')
+  const prevRendererConfigKeyRef = useRef('')
 
   useEffect(() => {
     const eventSink: PlaybackEventSink = {
@@ -61,59 +55,86 @@ export default function ScoreView() {
         switch (event.type) {
           case 'playback-ended':
             dispatch({ type: 'STOP' })
+            rendererRef.current?.clearHighlights()
+            rendererRef.current?.resetScroll()
             break
           case 'scroll-offset-changed':
             dispatch({ type: 'SET_SCROLL_OFFSET', offset: event.offset })
             break
-          case 'page-advance-requested':
-            dispatch({ type: event.direction === 'next' ? 'NEXT_PAGE' : 'PREV_PAGE' })
-            break
-          case 'page-advanced':
-            dispatch({ type: 'SET_PAGE', page: event.page })
-            break
-          case 'total-pages-changed':
-            dispatch({ type: 'SET_TOTAL_PAGES', total: event.total })
-            break
-          case 'judgment-fired':
+          case 'judgment-fired': {
             dispatch({ type: 'JUDGE', result: event.result })
+            const r = event.result
+            const eventKey = `${r.measureIndex}:${r.staffIndex}:${r.noteIndex}`
+            rendererRef.current?.showJudgment(eventKey, r.grade, r.type)
             break
+          }
         }
       }
     }
-    glInstance.init(eventSink, {
-      container: containerRef,
-      svgWrap: svgWrapRef,
-    })
+    glInstance.init(eventSink)
+
+    const renderer = new ScoreRenderer(glInstance)
+    rendererRef.current = renderer
+
+    if (containerRef.current) {
+      renderer.init(containerRef.current, {
+        onPageChange(page) {
+          dispatch({ type: 'SET_PAGE', page })
+        },
+        onTotalPagesChange(total) {
+          dispatch({ type: 'SET_TOTAL_PAGES', total })
+        },
+        onPageAdvanceRequested(dir) {
+          dispatch({ type: dir === 'next' ? 'NEXT_PAGE' : 'PREV_PAGE' })
+        },
+      })
+    }
+
     return () => {
+      renderer.destroy()
       glInstance.destroy()
     }
   }, [dispatch])
 
   useEffect(() => {
-    const key = `${displayMode}|${emptyMeasures}|${highlightLeadBeats}|${highlightRange}|${midiEnabled}|${midiDeviceId}|${currentPage}|${bpmOverrideEnabled}|${bpmOverride}|${speedRatio}|${logicFps}|${renderFps}|${highlightMode}|${autoPlay}|${autoPlayVolume}|${autoPlayDelay}|${velocityJudgmentEnabled}|${pedalJudgmentEnabled}|${noteOffJudgmentEnabled}`
-    if (key === prevConfigKeyRef.current) return
-    prevConfigKeyRef.current = key
+    if (!score || !rawDocument) return
+    glInstance.loadScore(score)
+    rendererRef.current?.loadScore(rawDocument, {
+      zoom,
+      pageWidth: verovioPageWidth,
+      pageHeight: verovioPageHeight,
+      staffSpacing: verovioStaffSpacing,
+      noteSpacing: verovioNoteSpacing,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- layoutOpts read on trigger, not deps
+  }, [rawDocument, score])
 
-    if (import.meta.env.DEV) {
-      _setConfigCallCount++
-      if (_setConfigCallCount <= 3 || _setConfigCallCount % 120 === 0) {
-        console.log(`[DEBUG-diagnose] setConfig called #${_setConfigCallCount} (page=${currentPage}, scrollOffset=${state.scrollOffset})`)
-      }
-    }
+  useEffect(() => {
+    if (!rawDocument) return
+    rendererRef.current?.applyLayout({
+      zoom,
+      pageWidth: verovioPageWidth,
+      pageHeight: verovioPageHeight,
+      staffSpacing: verovioStaffSpacing,
+      noteSpacing: verovioNoteSpacing,
+    })
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- cache zoom at commit for visual scale
+    setCommittedZoom(zoom)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opts read on trigger, not deps
+  }, [layoutCommitVersion])
+
+  useEffect(() => {
+    const key = `${emptyMeasures}|${midiEnabled}|${midiDeviceId}|${bpmOverrideEnabled}|${bpmOverride}|${speedRatio}|${logicFps}|${autoPlay}|${autoPlayVolume}|${autoPlayDelay}|${velocityJudgmentEnabled}|${pedalJudgmentEnabled}|${noteOffJudgmentEnabled}`
+    if (key === prevGlConfigKeyRef.current) return
+    prevGlConfigKeyRef.current = key
     glInstance.setConfig({
-      displayMode,
       emptyMeasures,
-      highlightLeadBeats,
-      highlightRange,
       midiEnabled,
       midiDeviceId,
-      currentPage,
       bpmOverrideEnabled,
       bpmOverride,
       speedRatio,
       logicFps,
-      renderFps,
-      highlightMode,
       autoPlay,
       autoPlayVolume,
       autoPlayDelay,
@@ -121,106 +142,33 @@ export default function ScoreView() {
       pedalJudgmentEnabled,
       noteOffJudgmentEnabled,
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- scrollOffset in log is diagnostic-only
-  }, [displayMode, emptyMeasures, highlightLeadBeats, highlightRange, midiEnabled, midiDeviceId, currentPage, bpmOverrideEnabled, bpmOverride, speedRatio, logicFps, renderFps, highlightMode, autoPlay, autoPlayVolume, autoPlayDelay, velocityJudgmentEnabled, pedalJudgmentEnabled, noteOffJudgmentEnabled])
+  }, [emptyMeasures, midiEnabled, midiDeviceId, bpmOverrideEnabled, bpmOverride, speedRatio, logicFps, autoPlay, autoPlayVolume, autoPlayDelay, velocityJudgmentEnabled, pedalJudgmentEnabled, noteOffJudgmentEnabled])
 
   useEffect(() => {
-    if (!score || !rawDocument) return
-    if (import.meta.env.DEV) {
-      console.log(`[DEBUG-diagnose] loadScore called (rawDocument=${rawDocument.length} chars)`)
-    }
-    glInstance.loadScore(score, rawDocument, {
-      zoom,
-      pageWidth: verovioPageWidth,
-      pageHeight: verovioPageHeight,
-      staffSpacing: verovioStaffSpacing,
-      noteSpacing: verovioNoteSpacing,
+    const key = `${displayMode}|${currentPage}|${renderFps}|${highlightLeadBeats}|${highlightRange}`
+    if (key === prevRendererConfigKeyRef.current) return
+    prevRendererConfigKeyRef.current = key
+    rendererRef.current?.setConfig({
+      displayMode,
+      currentPage,
+      renderFps,
+      highlightLeadBeats,
+      highlightRange,
     })
-  }, [rawDocument, score])
+  }, [displayMode, currentPage, renderFps, highlightLeadBeats, highlightRange])
 
   useEffect(() => {
-    if (!rawDocument) return
-    if (import.meta.env.DEV) {
-      console.log(`[DEBUG-diagnose] applyLayout called (zoom=${zoom})`)
-    }
-    glInstance.applyLayout({
-      zoom,
-      pageWidth: verovioPageWidth,
-      pageHeight: verovioPageHeight,
-      staffSpacing: verovioStaffSpacing,
-      noteSpacing: verovioNoteSpacing,
-    })
-    setCommittedZoom(zoom)
-    setLayoutVersion(v => v + 1)
-  }, [layoutCommitVersion])
-
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.log(`[DEBUG-diagnose] playState → "${playState}"`)
-    }
     if (playState === 'playing') {
       glInstance.play()
+      rendererRef.current?.clearHighlights()
     } else if (playState === 'paused') {
       glInstance.pause()
     } else if (playState === 'stopped') {
       glInstance.stop()
+      rendererRef.current?.clearHighlights()
+      rendererRef.current?.resetScroll()
     }
   }, [playState])
-
-  useEffect(() => {
-    if (!getVerovioRenderer().hasDocument) return
-    if (import.meta.env.DEV) {
-      console.log(`[DEBUG-diagnose] reapplyJudgments (page=${currentPage})`)
-    }
-    glInstance.reapplyJudgments()
-  }, [currentPage, displayMode, layoutVersion])
-
-  const svgContent = useMemo(() => {
-    if (import.meta.env.DEV) {
-      _svgContentRecomputeCount++
-      console.log(
-        `[DEBUG-diagnose] svgContent recompute #${_svgContentRecomputeCount} ` +
-        `(mode=${displayMode} page=${currentPage} totalPages=${totalPages} layoutVer=${layoutVersion} rawDoc=${rawDocument ? rawDocument.length : 'null'})`
-      )
-    }
-    if (!getVerovioRenderer().hasDocument || !rawDocument) return null
-    if (displayMode === 'page') {
-      const pageNo = Math.min(currentPage + 1, Math.max(1, totalPages))
-      return getVerovioRenderer().renderSVG(pageNo)
-    } else {
-      const svgs = getVerovioRenderer().renderAllSVGs()
-      return svgs.map((s, i) => ({ svg: s, page: i + 1 }))
-    }
-  }, [rawDocument, displayMode, currentPage, totalPages, layoutVersion])
-
-  useEffect(() => {
-    if (!import.meta.env.DEV) return
-    const target = svgWrapRef.current
-    if (!target) return
-    const observer = new MutationObserver((mutations) => {
-        for (const mut of mutations) {
-          if (mut.type === 'childList') {
-            const added = mut.addedNodes.length
-            const removed = mut.removedNodes.length
-            if (added > 0 || removed > 0) {
-              _domMutHitCount++
-              const addedTags: string[] = []
-              const removedTags: string[] = []
-              mut.addedNodes.forEach(n => { if (n instanceof Element) addedTags.push(n.tagName) })
-              mut.removedNodes.forEach(n => { if (n instanceof Element) removedTags.push(n.tagName) })
-              console.log(
-                `[DEBUG-diagnose] DOM MUTATION #${_domMutHitCount}: ` +
-                `childList added=[${addedTags.join(',')}] removed=[${removedTags.join(',')}] ` +
-                `target=<${(mut.target as Element).tagName?.toLowerCase()}>`
-              )
-            }
-          }
-        }
-      })
-    observer.observe(target, { childList: true, subtree: true })
-    console.log('[DEBUG-diagnose] MutationObserver installed on svgWrap')
-    return () => observer.disconnect()
-  }, [rawDocument])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -260,7 +208,7 @@ export default function ScoreView() {
   }, [totalJudged, dispatch])
 
   return (
-    <div ref={containerRef} className="score-view-container" style={{ position: "relative", overflow: "hidden", background: "var(--score-bg, #faf9f6)" }}>
+    <div className="score-view-container" style={{ position: "relative", overflow: "hidden", background: "var(--score-bg, #faf9f6)" }}>
       <button
         className="heatmap-icon-btn"
         onClick={handleOpenHeatmap}
@@ -347,43 +295,19 @@ export default function ScoreView() {
         </div>
       )}
 
-      {svgContent !== null && (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `scale(${committedZoom > 0 ? zoom / committedZoom : 1})`,
+          transformOrigin: "top left",
+        }}
+      >
         <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            willChange: "transform",
-            transform: `scale(${committedZoom > 0 ? zoom / committedZoom : 1})`,
-            transformOrigin: "top left",
-          }}
-        >
-          <div
-            ref={svgWrapRef}
-            style={{
-              position: "absolute",
-              inset: 0,
-              willChange: "transform",
-            }}
-          >
-            {typeof svgContent === 'string' ? (
-              <div
-                style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                dangerouslySetInnerHTML={{ __html: svgContent }}
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {svgContent.map(({ svg, page }) => (
-                  <div
-                    key={page}
-                    style={{ width: '100%', flexShrink: 0 }}
-                    dangerouslySetInnerHTML={{ __html: svg }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+          ref={containerRef}
+          style={{ position: "absolute", inset: 0 }}
+        />
+      </div>
     </div>
   )
 }

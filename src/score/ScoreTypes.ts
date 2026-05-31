@@ -54,6 +54,16 @@ export type ThemeName = 'ocean' | 'rose' | 'olive' | 'slate'
 
 export type ColorScheme = 'light' | 'dark' | 'auto'
 
+export interface ScoreColumnNote {
+  eventKey: string
+  staffIndex: number
+  voice: number
+}
+
+export interface ScoreColumn {
+  notes: ScoreColumnNote[]
+}
+
 export interface HighlightColumnNote {
   svgId: string
   staffIndex: number
