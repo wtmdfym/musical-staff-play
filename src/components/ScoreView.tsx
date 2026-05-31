@@ -1,43 +1,17 @@
-import { useRef, useEffect, useMemo, useState, memo } from "react"
+import { useRef, useEffect, useMemo, useState, useCallback } from "react"
 import { usePractice } from "../context/usePractice"
 import { getGameLoop } from "../core/GameLoop"
 import { getVerovioRenderer } from "../renderer/VerovioEngine"
 import type { PlaybackEventSink } from "../core/PlaybackEvents"
+import { parseFromXml } from "../score/MusicxmlParser"
+import { getRecentFiles, addRecentFile } from "../data/recentFiles"
+import { loadScoreFromFile } from "../score/loadScoreFile"
 
 const glInstance = getGameLoop()
 
 let _svgContentRecomputeCount = 0
 let _setConfigCallCount = 0
 let _domMutHitCount = 0
-
-const SvgRenderer = memo(function SvgRenderer({ svgContent }: { svgContent: string | { svg: string; page: number }[] | null }) {
-  if (svgContent === null) return null
-
-  if (typeof svgContent === 'string') {
-    return (
-      <div
-        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        dangerouslySetInnerHTML={{ __html: svgContent }}
-      />
-    )
-  }
-
-  if (Array.isArray(svgContent)) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {svgContent.map(({ svg, page }) => (
-          <div
-            key={page}
-            style={{ width: '100%', flexShrink: 0 }}
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
-        ))}
-      </div>
-    )
-  }
-
-  return null
-})
 
 export default function ScoreView() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -73,9 +47,13 @@ export default function ScoreView() {
     velocityJudgmentEnabled,
     pedalJudgmentEnabled,
     noteOffJudgmentEnabled,
+    stats,
+    layoutCommitVersion,
   } = state
 
-  const [vrvReady, setVrvReady] = useState(() => getVerovioRenderer().isReady)
+  const [committedZoom, setCommittedZoom] = useState(zoom)
+  const [layoutVersion, setLayoutVersion] = useState(0)
+  const prevConfigKeyRef = useRef('')
 
   useEffect(() => {
     const eventSink: PlaybackEventSink = {
@@ -83,7 +61,6 @@ export default function ScoreView() {
         switch (event.type) {
           case 'playback-ended':
             dispatch({ type: 'STOP' })
-            dispatch({ type: 'SHOW_HEATMAP' })
             break
           case 'scroll-offset-changed':
             dispatch({ type: 'SET_SCROLL_OFFSET', offset: event.offset })
@@ -113,36 +90,15 @@ export default function ScoreView() {
   }, [dispatch])
 
   useEffect(() => {
-    const vrv = getVerovioRenderer()
-    if (!vrv.isReady) {
-      let cancelled = false
-      vrv.init().then(() => { if (!cancelled) setVrvReady(true) })
-      return () => { cancelled = true }
-    }
-  }, [])
+    const key = `${displayMode}|${emptyMeasures}|${highlightLeadBeats}|${highlightRange}|${midiEnabled}|${midiDeviceId}|${currentPage}|${bpmOverrideEnabled}|${bpmOverride}|${speedRatio}|${logicFps}|${renderFps}|${highlightMode}|${autoPlay}|${autoPlayVolume}|${autoPlayDelay}|${velocityJudgmentEnabled}|${pedalJudgmentEnabled}|${noteOffJudgmentEnabled}`
+    if (key === prevConfigKeyRef.current) return
+    prevConfigKeyRef.current = key
 
-  useEffect(() => {
-    if (!score || !rawDocument) return
-    console.log(`[DEBUG-diagnose] loadScore called (rawDocument=${rawDocument.length} chars)`)
-    glInstance.loadScore(score, rawDocument)
-  }, [rawDocument, score])
-
-  useEffect(() => {
-    if (!rawDocument) return
-    console.log(`[DEBUG-diagnose] applyLayout called (zoom=${zoom})`)
-    glInstance.applyLayout({
-      zoom,
-      pageWidth: verovioPageWidth,
-      pageHeight: verovioPageHeight,
-      staffSpacing: verovioStaffSpacing,
-      noteSpacing: verovioNoteSpacing,
-    })
-  }, [zoom, verovioPageWidth, verovioPageHeight, verovioStaffSpacing, verovioNoteSpacing, rawDocument])
-
-  useEffect(() => {
-    _setConfigCallCount++
-    if (_setConfigCallCount <= 3 || _setConfigCallCount % 120 === 0) {
-      console.log(`[DEBUG-diagnose] setConfig called #${_setConfigCallCount} (page=${currentPage}, scrollOffset=${state.scrollOffset})`)
+    if (import.meta.env.DEV) {
+      _setConfigCallCount++
+      if (_setConfigCallCount <= 3 || _setConfigCallCount % 120 === 0) {
+        console.log(`[DEBUG-diagnose] setConfig called #${_setConfigCallCount} (page=${currentPage}, scrollOffset=${state.scrollOffset})`)
+      }
     }
     glInstance.setConfig({
       displayMode,
@@ -165,10 +121,43 @@ export default function ScoreView() {
       pedalJudgmentEnabled,
       noteOffJudgmentEnabled,
     })
-  })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scrollOffset in log is diagnostic-only
+  }, [displayMode, emptyMeasures, highlightLeadBeats, highlightRange, midiEnabled, midiDeviceId, currentPage, bpmOverrideEnabled, bpmOverride, speedRatio, logicFps, renderFps, highlightMode, autoPlay, autoPlayVolume, autoPlayDelay, velocityJudgmentEnabled, pedalJudgmentEnabled, noteOffJudgmentEnabled])
 
   useEffect(() => {
-    console.log(`[DEBUG-diagnose] playState → "${playState}"`)
+    if (!score || !rawDocument) return
+    if (import.meta.env.DEV) {
+      console.log(`[DEBUG-diagnose] loadScore called (rawDocument=${rawDocument.length} chars)`)
+    }
+    glInstance.loadScore(score, rawDocument, {
+      zoom,
+      pageWidth: verovioPageWidth,
+      pageHeight: verovioPageHeight,
+      staffSpacing: verovioStaffSpacing,
+      noteSpacing: verovioNoteSpacing,
+    })
+  }, [rawDocument, score])
+
+  useEffect(() => {
+    if (!rawDocument) return
+    if (import.meta.env.DEV) {
+      console.log(`[DEBUG-diagnose] applyLayout called (zoom=${zoom})`)
+    }
+    glInstance.applyLayout({
+      zoom,
+      pageWidth: verovioPageWidth,
+      pageHeight: verovioPageHeight,
+      staffSpacing: verovioStaffSpacing,
+      noteSpacing: verovioNoteSpacing,
+    })
+    setCommittedZoom(zoom)
+    setLayoutVersion(v => v + 1)
+  }, [layoutCommitVersion])
+
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.log(`[DEBUG-diagnose] playState → "${playState}"`)
+    }
     if (playState === 'playing') {
       glInstance.play()
     } else if (playState === 'paused') {
@@ -179,18 +168,21 @@ export default function ScoreView() {
   }, [playState])
 
   useEffect(() => {
-    if (displayMode === 'page' && getVerovioRenderer().hasDocument) {
+    if (!getVerovioRenderer().hasDocument) return
+    if (import.meta.env.DEV) {
       console.log(`[DEBUG-diagnose] reapplyJudgments (page=${currentPage})`)
-      glInstance.reapplyJudgments()
     }
-  }, [currentPage, displayMode])
+    glInstance.reapplyJudgments()
+  }, [currentPage, displayMode, layoutVersion])
 
   const svgContent = useMemo(() => {
-    _svgContentRecomputeCount++
-    console.log(
-      `[DEBUG-diagnose] svgContent recompute #${_svgContentRecomputeCount} ` +
-      `(mode=${displayMode} page=${currentPage} totalPages=${totalPages} zoom=${zoom} rawDoc=${rawDocument ? rawDocument.length : 'null'})`
-    )
+    if (import.meta.env.DEV) {
+      _svgContentRecomputeCount++
+      console.log(
+        `[DEBUG-diagnose] svgContent recompute #${_svgContentRecomputeCount} ` +
+        `(mode=${displayMode} page=${currentPage} totalPages=${totalPages} layoutVer=${layoutVersion} rawDoc=${rawDocument ? rawDocument.length : 'null'})`
+      )
+    }
     if (!getVerovioRenderer().hasDocument || !rawDocument) return null
     if (displayMode === 'page') {
       const pageNo = Math.min(currentPage + 1, Math.max(1, totalPages))
@@ -199,69 +191,197 @@ export default function ScoreView() {
       const svgs = getVerovioRenderer().renderAllSVGs()
       return svgs.map((s, i) => ({ svg: s, page: i + 1 }))
     }
-  }, [rawDocument, displayMode, currentPage, totalPages, zoom])
+  }, [rawDocument, displayMode, currentPage, totalPages, layoutVersion])
 
-  // DEBUG: MutationObserver to detect SVG DOM rebuilds
   useEffect(() => {
+    if (!import.meta.env.DEV) return
     const target = svgWrapRef.current
     if (!target) return
     const observer = new MutationObserver((mutations) => {
-      for (const mut of mutations) {
-        if (mut.type === 'childList') {
-          const added = mut.addedNodes.length
-          const removed = mut.removedNodes.length
-          if (added > 0 || removed > 0) {
-            _domMutHitCount++
-            const addedTags: string[] = []
-            const removedTags: string[] = []
-            mut.addedNodes.forEach(n => { if (n instanceof Element) addedTags.push(n.tagName) })
-            mut.removedNodes.forEach(n => { if (n instanceof Element) removedTags.push(n.tagName) })
-            console.log(
-              `[DEBUG-diagnose] DOM MUTATION #${_domMutHitCount}: ` +
-              `childList added=[${addedTags.join(',')}] removed=[${removedTags.join(',')}] ` +
-              `target=<${(mut.target as Element).tagName?.toLowerCase()}>`
-            )
+        for (const mut of mutations) {
+          if (mut.type === 'childList') {
+            const added = mut.addedNodes.length
+            const removed = mut.removedNodes.length
+            if (added > 0 || removed > 0) {
+              _domMutHitCount++
+              const addedTags: string[] = []
+              const removedTags: string[] = []
+              mut.addedNodes.forEach(n => { if (n instanceof Element) addedTags.push(n.tagName) })
+              mut.removedNodes.forEach(n => { if (n instanceof Element) removedTags.push(n.tagName) })
+              console.log(
+                `[DEBUG-diagnose] DOM MUTATION #${_domMutHitCount}: ` +
+                `childList added=[${addedTags.join(',')}] removed=[${removedTags.join(',')}] ` +
+                `target=<${(mut.target as Element).tagName?.toLowerCase()}>`
+              )
+            }
           }
         }
-      }
-    })
+      })
     observer.observe(target, { childList: true, subtree: true })
     console.log('[DEBUG-diagnose] MutationObserver installed on svgWrap')
     return () => observer.disconnect()
   }, [rawDocument])
 
-  const showPlaceholder = !rawDocument || !svgContent
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  const recentFiles = getRecentFiles()
+
+  const processFile = useCallback(async (file: File) => {
+    try {
+      const { xml, fileName, format } = await loadScoreFromFile(file)
+      const score = parseFromXml(xml)
+      addRecentFile(fileName)
+      dispatch({ type: 'LOAD_SCORE', score, fileName, rawDocument: xml, documentFormat: format })
+    } catch (err) {
+      console.error('Score parse failed:', err)
+    }
+  }, [dispatch])
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+    e.target.value = ''
+  }, [processFile])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) processFile(file)
+  }, [processFile])
+
+  const totalJudged =
+    stats.noteOn.perfect + stats.noteOn.great + stats.noteOn.good + stats.noteOn.miss
+
+  const handleOpenHeatmap = useCallback(() => {
+    if (totalJudged > 0) {
+      dispatch({ type: 'SHOW_HEATMAP' })
+    }
+  }, [totalJudged, dispatch])
 
   return (
-    <div ref={containerRef} className="score-view-container" style={{ position: "relative", overflow: "hidden", background: "#fff" }}>
-      {showPlaceholder && (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center",
-          height: "100%", color: "#999", fontSize: 14, userSelect: "none",
-        }}>
-          {vrvReady ? "Open a MusicXML or MEI file to begin" : "Loading Verovio..."}
+    <div ref={containerRef} className="score-view-container" style={{ position: "relative", overflow: "hidden", background: "var(--score-bg, #faf9f6)" }}>
+      <button
+        className="heatmap-icon-btn"
+        onClick={handleOpenHeatmap}
+        disabled={totalJudged === 0}
+        title={totalJudged > 0 ? '查看练习回顾' : '暂无统计'}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 32,
+          height: 32,
+          border: 'none',
+          borderRadius: 8,
+          background: totalJudged > 0 ? 'var(--accent-bg)' : 'transparent',
+          color: totalJudged > 0 ? 'var(--accent)' : 'var(--text)',
+          cursor: totalJudged > 0 ? 'pointer' : 'default',
+          opacity: totalJudged > 0 ? 1 : 0.3,
+          transition: 'opacity 0.2s, background 0.2s',
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      </button>
+      {!rawDocument && (
+        <div
+          className={`score-placeholder${dragOver ? ' dragover' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".musicxml,.mxl,.xml,.mei"
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
+          />
+          <div className="placeholder-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="19" cy="5" r="2" />
+              <circle cx="5" cy="19" r="2" />
+              <line x1="12" y1="7" x2="5" y2="17" />
+              <line x1="19" y1="7" x2="12" y2="17" />
+            </svg>
+          </div>
+          <div className="placeholder-text">
+            Drop a MusicXML file here or click to browse
+          </div>
+          <div className="placeholder-hint">
+            Supports .musicxml, .mxl, .xml, .mei
+          </div>
+          {recentFiles.length > 0 && (
+            <div className="placeholder-recent">
+              <div className="recent-title">Recent</div>
+              {recentFiles.map((f) => (
+                <div key={`${f.name}-${f.timestamp}`} className="recent-item">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <span className="recent-name">{f.name}</span>
+                  <span className="recent-time" title={new Date(f.timestamp).toLocaleString()}>
+                    {(() => {
+                      const diff = Date.now() - f.timestamp
+                      if (diff < 3600000) return `${Math.round(diff / 60000)}m ago`
+                      if (diff < 86400000) return `${Math.round(diff / 3600000)}h ago`
+                      return `${Math.round(diff / 86400000)}d ago`
+                    })()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {svgContent !== null && (
         <div
-          ref={svgWrapRef}
           style={{
             position: "absolute",
             inset: 0,
             willChange: "transform",
+            transform: `scale(${committedZoom > 0 ? zoom / committedZoom : 1})`,
+            transformOrigin: "top left",
           }}
         >
-          <SvgRenderer svgContent={svgContent} />
-        </div>
-      )}
-
-      {displayMode === "page" && totalPages > 0 && (
-        <div style={{
-          position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)",
-          fontSize: 12, color: "#777", pointerEvents: "none",
-        }}>
-          {currentPage + 1} / {totalPages}
+          <div
+            ref={svgWrapRef}
+            style={{
+              position: "absolute",
+              inset: 0,
+              willChange: "transform",
+            }}
+          >
+            {typeof svgContent === 'string' ? (
+              <div
+                style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                dangerouslySetInnerHTML={{ __html: svgContent }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {svgContent.map(({ svg, page }) => (
+                  <div
+                    key={page}
+                    style={{ width: '100%', flexShrink: 0 }}
+                    dangerouslySetInnerHTML={{ __html: svg }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

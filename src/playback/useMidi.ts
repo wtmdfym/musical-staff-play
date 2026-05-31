@@ -44,5 +44,12 @@ export function useMidi() {
     getMidiInputManager().close()
   }, [])
 
-  return { status, inputName, devices, isAccessGranted, connect, close }
+  const statusLabel =
+    status === 'unavailable' ? 'Unavailable' :
+    status === 'denied' ? 'Denied' :
+    status === 'connecting' ? 'Connecting...' :
+    status === 'connected' ? (inputName || 'Connected') :
+    'Disconnected'
+
+  return { status, inputName, devices, isAccessGranted, connect, close, statusLabel }
 }

@@ -1,30 +1,8 @@
 import { useRef, useState } from 'react'
 import { usePractice } from '../context/usePractice'
 import { parseFromXml } from '../score/MusicxmlParser'
-
-
-function getExt(name: string): string {
-  const i = name.lastIndexOf('.')
-  return i < 0 ? '' : name.slice(i).toLowerCase()
-}
-
-async function extractMxlXml(buf: ArrayBuffer): Promise<string> {
-  const JSZip = (await import('jszip')).default
-  const zip = await JSZip.loadAsync(buf)
-
-  const containerXml = await zip.file('META-INF/container.xml')?.async('string')
-  if (!containerXml) throw new Error('META-INF/container.xml not found in .mxl archive')
-
-  const doc = new DOMParser().parseFromString(containerXml, 'text/xml')
-  const rootfile = doc.querySelector('rootfile')
-  const fullPath = rootfile?.getAttribute('full-path')
-  if (!fullPath) throw new Error('No rootfile found in META-INF/container.xml')
-
-  const scoreXml = await zip.file(fullPath)?.async('string')
-  if (!scoreXml) throw new Error(`File "${fullPath}" (referenced by container.xml) not found in .mxl archive`)
-
-  return scoreXml
-}
+import { addRecentFile } from '../data/recentFiles'
+import { loadScoreFromFile } from '../score/loadScoreFile'
 
 export default function ScoreFileSelector() {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -36,43 +14,21 @@ export default function ScoreFileSelector() {
     inputRef.current?.click()
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     setError(null)
-    const ext = getExt(file.name)
 
-    const onErr = (err: unknown) => {
+    try {
+      const { xml, fileName, format } = await loadScoreFromFile(file)
+      const score = parseFromXml(xml)
+      addRecentFile(fileName)
+      dispatch({ type: 'LOAD_SCORE', score, fileName, rawDocument: xml, documentFormat: format })
+    } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown parse error'
       console.error('Score parse failed:', msg)
       setError(msg)
-    }
-
-    if (ext === '.mxl') {
-      const reader = new FileReader()
-      reader.onload = () => {
-        extractMxlXml(reader.result as ArrayBuffer)
-          .then(xml => {
-            const score = parseFromXml(xml)
-            dispatch({ type: 'LOAD_SCORE', score, fileName: file.name, rawDocument: xml, documentFormat: 'musicxml' })
-          })
-          .catch(onErr)
-      }
-      reader.onerror = () => setError('Failed to read file')
-      reader.readAsArrayBuffer(file)
-    } else {
-      const reader = new FileReader()
-      reader.onload = () => {
-        try {
-          const raw = reader.result as string
-          const format = ext === '.mei' ? 'mei' as const : 'musicxml' as const
-          const score = parseFromXml(raw)
-          dispatch({ type: 'LOAD_SCORE', score, fileName: file.name, rawDocument: raw, documentFormat: format })
-        } catch (err) { onErr(err) }
-      }
-      reader.onerror = () => setError('Failed to read file')
-      reader.readAsText(file)
     }
 
     e.target.value = ''

@@ -1,45 +1,22 @@
-import { useState, useRef, useCallback } from 'react'
 import ScoreFileSelector from './ScoreFileSelector'
 import TransportControls from './TransportControls'
 import { usePractice } from '../context/usePractice'
 import { useMidi } from '../playback/useMidi'
-import { useFpsMonitor } from '../playback/useFpsMonitor'
+import { useBpmInput } from '../playback/useBpmInput'
 
 
 export default function ControlBar({ onOpenSettings }: { onOpenSettings: () => void }) {
   const { state, dispatch } = usePractice()
   const {
-    displayMode, zoom, bpmOverrideEnabled, bpmOverride, speedRatio, score, playState, autoPlay,
+    displayMode, zoom, bpmOverrideEnabled, bpmOverride, speedRatio, score, playState, autoPlay, stats,
   } = state
   const defaultBpm = score?.bpm ?? 60
-  const { status: midiStatus, inputName: midiInputName } = useMidi()
-
-  const [bpmInput, setBpmInput] = useState(String(bpmOverride || defaultBpm))
-  const { logicFps, renderFps } = useFpsMonitor()
-  const fpsDisplay = `${logicFps} / ${renderFps}`
-  const bpmRef = useRef<HTMLInputElement>(null)
+  const { status: midiStatus, statusLabel } = useMidi()
+  const { bpmInput, setBpmInput, bpmRef, commitBpm, resetBpm, handleBpmKeyDown } = useBpmInput()
 
   const effectiveBpm = bpmOverrideEnabled
     ? (bpmOverride > 0 ? bpmOverride : defaultBpm)
     : Math.round(defaultBpm * speedRatio)
-
-  const commitBpm = useCallback(() => {
-    const val = parseInt(bpmInput, 10)
-    if (isNaN(val) || val < 1) {
-      setBpmInput(String(bpmOverride || defaultBpm))
-      return
-    }
-    const clamped = Math.max(20, Math.min(300, val))
-    dispatch({ type: 'SET_BPM', bpm: clamped })
-    if (clamped !== val) setBpmInput(String(clamped))
-  }, [bpmInput, bpmOverride, defaultBpm, dispatch])
-
-  const midiLabel =
-    midiStatus === 'unavailable' ? 'Unavailable' :
-    midiStatus === 'denied' ? 'Denied' :
-    midiStatus === 'connecting' ? 'Connecting...' :
-    midiStatus === 'connected' ? (midiInputName || 'Connected') :
-    'Disconnected'
 
   return (
     <div className="control-bar">
@@ -99,6 +76,8 @@ export default function ControlBar({ onOpenSettings }: { onOpenSettings: () => v
             step="0.05"
             value={zoom}
             onChange={(e) => dispatch({ type: 'SET_ZOOM', zoom: parseFloat(e.target.value) })}
+            onMouseUp={() => dispatch({ type: 'COMMIT_LAYOUT' })}
+            onTouchEnd={() => dispatch({ type: 'COMMIT_LAYOUT' })}
             className="zoom-slider"
             title={`Zoom: ${Math.round(zoom * 100)}%`}
           />
@@ -124,13 +103,13 @@ export default function ControlBar({ onOpenSettings }: { onOpenSettings: () => v
                 value={bpmInput}
                 onChange={(e) => setBpmInput(e.target.value)}
                 onBlur={commitBpm}
-                onKeyDown={(e) => { if (e.key === 'Enter') bpmRef.current?.blur() }}
+                onKeyDown={handleBpmKeyDown}
                 className="setting-number bpm-input"
                 title="Fixed BPM"
               />
               <button
                 className="ctrl-btn reset-btn"
-                onClick={() => { dispatch({ type: 'SET_BPM', bpm: 0 }); setBpmInput(String(defaultBpm)) }}
+                onClick={resetBpm}
                 title="Reset to score BPM"
               >
                 ↺
@@ -159,12 +138,12 @@ export default function ControlBar({ onOpenSettings }: { onOpenSettings: () => v
 
       <div className="control-section control-status-section">
         <div className="status-item">
-          <span className="status-label">FPS</span>
-          <span className="status-value">{fpsDisplay}</span>
+          <span className="status-label">Combo</span>
+          <span className="status-value">{stats.combo > 0 ? `${stats.combo}x` : '-'}</span>
         </div>
         <div className="status-item">
           <span className={`midi-status-dot ${midiStatus}`} />
-          <span className="status-value midi-status-text">{midiLabel}</span>
+          <span className="status-value midi-status-text">{statusLabel}</span>
         </div>
       </div>
 

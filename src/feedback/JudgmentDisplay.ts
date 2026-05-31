@@ -57,21 +57,22 @@ export class JudgmentDisplay {
     noteEl.insertBefore(circle, noteEl.firstChild)
   }
 
-  applyToPage(): void {
-    for (const [svgId, entry] of this._judged) {
-      const el = document.getElementById(svgId)
-      if (!el) continue
-      if (entry.types.has('noteOn')) {
-        el.setAttribute('data-judgment', entry.grade)
-      }
-      if (entry.types.has('noteOff')) {
-        el.setAttribute('data-judgment-off', entry.grade)
-      }
-      if (entry.types.has('velocity')) {
-        el.setAttribute('data-judgment-vel', entry.grade)
+    applyToPage(): void {
+      for (const [svgId, entry] of this._judged) {
+        const el = document.getElementById(svgId)
+        if (!el) continue
+        if (entry.types.has('noteOn')) {
+          el.setAttribute('data-judgment', entry.grade)
+        }
+        if (entry.types.has('noteOff')) {
+          el.setAttribute('data-judgment-off', entry.grade)
+        }
+        if (entry.types.has('velocity')) {
+          el.setAttribute('data-judgment-vel', entry.grade)
+          this._addVelocityMarker(el, entry.grade)
+        }
       }
     }
-  }
 
   reset(): void {
     this._judged.clear()

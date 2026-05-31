@@ -50,6 +50,10 @@ export type HighlightMode = 'color' | 'box'
 
 export type PlayState = 'stopped' | 'playing' | 'paused'
 
+export type ThemeName = 'ocean' | 'rose' | 'olive' | 'slate'
+
+export type ColorScheme = 'light' | 'dark' | 'auto'
+
 export interface HighlightColumnNote {
   svgId: string
   staffIndex: number
@@ -114,6 +118,9 @@ export interface PracticeState {
   noteOffJudgmentEnabled: boolean
   rawDocument: string | null
   documentFormat: 'musicxml' | 'mei' | null
+  theme: ThemeName
+  colorScheme: ColorScheme
+  layoutCommitVersion: number
 }
 
 export interface PerDimensionStats {
@@ -194,3 +201,6 @@ export type PracticeAction =
   | { type: 'SET_VELOCITY_JUDGMENT'; enabled: boolean }
   | { type: 'SET_PEDAL_JUDGMENT'; enabled: boolean }
   | { type: 'SET_NOTE_OFF_JUDGMENT'; enabled: boolean }
+  | { type: 'SET_THEME'; theme: ThemeName }
+  | { type: 'SET_COLOR_SCHEME'; scheme: ColorScheme }
+  | { type: 'COMMIT_LAYOUT' }

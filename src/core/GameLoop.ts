@@ -83,6 +83,7 @@ export class GameLoop {
   private _jd = new JudgmentDisplay();
 
   private _eventSink: PlaybackEventSink | null = null;
+  private _pendingLayoutOpts: VerovioLayoutOptions | null = null;
   private _config: GameLoopConfig = {
     displayMode: "page",
     emptyMeasures: 2,
@@ -259,9 +260,10 @@ export class GameLoop {
     }
   }
 
-  loadScore(score: ScoreData, rawDocument: string): void {
+  loadScore(score: ScoreData, rawDocument: string, layoutOpts?: VerovioLayoutOptions): void {
     this._score = score;
     this._rawDocument = rawDocument;
+    this._pendingLayoutOpts = layoutOpts ?? null;
     this._tempoClock.configure(
       score.tempoMap,
       this._config.bpmOverrideEnabled,
@@ -295,6 +297,10 @@ export class GameLoop {
     if (!this._rawDocument) return;
     const ok = this._vrv.loadScore(this._rawDocument);
     if (ok) {
+      if (this._pendingLayoutOpts) {
+        this._vrv.applyLayout(this._pendingLayoutOpts);
+        this._pendingLayoutOpts = null;
+      }
       this._vrvPageCount = this._vrv.pageCount;
       this._eventSink?.emit({ type: 'total-pages-changed', total: this._vrvPageCount });
       if (this._config.currentPage >= this._vrvPageCount) {
@@ -315,7 +321,6 @@ export class GameLoop {
   }
 
   reapplyJudgments(): void {
-    if (this._config.displayMode !== "page") return;
     this._jd.applyToPage();
   }
 

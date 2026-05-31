@@ -75,6 +75,9 @@ const initialState: PracticeState = {
   noteOffJudgmentEnabled: false,
   rawDocument: null,
   documentFormat: null,
+  theme: 'ocean',
+  colorScheme: 'auto',
+  layoutCommitVersion: 0,
   ...persisted,
 }
 
@@ -240,6 +243,12 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, pedalJudgmentEnabled: action.enabled }
     case 'SET_NOTE_OFF_JUDGMENT':
       return { ...state, noteOffJudgmentEnabled: action.enabled }
+    case 'SET_THEME':
+      return { ...state, theme: action.theme }
+    case 'SET_COLOR_SCHEME':
+      return { ...state, colorScheme: action.scheme }
+    case 'COMMIT_LAYOUT':
+      return { ...state, layoutCommitVersion: state.layoutCommitVersion + 1 }
     default:
       return state
   }
@@ -252,6 +261,7 @@ const PERSISTED_KEYS: (keyof PracticeState)[] = [
   'verovioPageWidth', 'verovioPageHeight', 'verovioStaffSpacing', 'verovioNoteSpacing',
   'midiEnabled', 'midiDeviceId', 'highlightMode', 'autoPlayVolume', 'autoPlayDelay',
   'velocityJudgmentEnabled', 'pedalJudgmentEnabled', 'noteOffJudgmentEnabled',
+  'theme', 'colorScheme',
 ]
 
 export function PracticeProvider({ children }: { children: ReactNode }) {
@@ -279,6 +289,7 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     state.verovioPageWidth, state.verovioPageHeight, state.verovioStaffSpacing, state.verovioNoteSpacing,
     state.midiEnabled, state.midiDeviceId, state.highlightMode, state.autoPlayVolume, state.autoPlayDelay,
     state.velocityJudgmentEnabled, state.pedalJudgmentEnabled, state.noteOffJudgmentEnabled,
+    state.theme, state.colorScheme,
   ])
   return (
     <PracticeStateContext.Provider value={state}>

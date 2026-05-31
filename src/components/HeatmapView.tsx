@@ -29,6 +29,14 @@ function velocityHeatColor(deviation: number): string {
   return '#ef4444'
 }
 
+function grade(acc: number): string {
+  if (acc >= 95) return 'S'
+  if (acc >= 85) return 'A'
+  if (acc >= 70) return 'B'
+  if (acc >= 50) return 'C'
+  return 'D'
+}
+
 export default function HeatmapView() {
   const { state, dispatch } = usePractice()
   const { showHeatmap, score, stats } = state
@@ -37,6 +45,7 @@ export default function HeatmapView() {
   if (!showHeatmap || !score) return null
 
   const totalMeasures = score.measures.length
+  const noteOnStats = stats.noteOn
 
   const dimEnabled: Record<HeatmapTab, boolean> = {
     noteOn: true,
@@ -155,13 +164,28 @@ export default function HeatmapView() {
     )
   }
 
+  const total = noteOnStats.perfect + noteOnStats.great + noteOnStats.good + noteOnStats.miss
+  const accuracy = total > 0 ? Math.round((noteOnStats.perfect + noteOnStats.great) / total * 100) : 100
+
   return (
     <div className="heatmap-overlay" onClick={() => dispatch({ type: 'HIDE_HEATMAP' })}>
       <div className="heatmap-modal" onClick={(e) => e.stopPropagation()}>
         <h2>练习回顾</h2>
 
         <div className="heatmap-summary">
-          <div>Max Combo: <strong>{stats.maxCombo}x</strong></div>
+          <div className="heatmap-overall">
+            <span className="heatmap-grade">{grade(accuracy)}</span>
+            <span className="heatmap-acc">{accuracy}%</span>
+          </div>
+          <div className="heatmap-detail-row">
+            <span className="stat-perfect">★ Perfect {noteOnStats.perfect}</span>
+            <span className="stat-great">● Great {noteOnStats.great}</span>
+            <span className="stat-good">● Good {noteOnStats.good}</span>
+            <span className="stat-miss">✗ Miss {noteOnStats.miss}</span>
+          </div>
+          <div style={{ marginTop: 4 }}>
+            <span>Max Combo: <strong>{stats.maxCombo}x</strong></span>
+          </div>
         </div>
 
         <div className="heatmap-tabs">
