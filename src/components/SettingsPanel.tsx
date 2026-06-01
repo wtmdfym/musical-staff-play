@@ -10,41 +10,24 @@ import LayoutSettings from './settings/LayoutSettings'
 import PerfSettings from './settings/PerfSettings'
 import MidiSettings from './settings/MidiSettings'
 import VoiceColorSettings from './settings/VoiceColorSettings'
+import HighlightColorSettings from './settings/HighlightColorSettings'
+import JudgmentColorSettings from './settings/JudgmentColorSettings'
+import BoxSizeSettings from './settings/BoxSizeSettings'
 
-function SectionHeader({ title, expanded, onClick }: { title: string; expanded: boolean; onClick: () => void }) {
-  return (
-    <button className="settings-section-header" onClick={onClick}>
-      <svg
-        className={`section-chevron${expanded ? ' open' : ''}`}
-        width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-      >
-        <polyline points="9 18 15 12 9 6" />
-      </svg>
-      <h3>{title}</h3>
-    </button>
-  )
-}
+const TABS = [
+  { key: 'general', label: 'General' },
+  { key: 'appearance', label: 'Appearance' },
+  { key: 'playback', label: 'Playback' },
+  { key: 'advanced', label: 'Advanced' },
+] as const
+
+type TabKey = typeof TABS[number]['key']
 
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = usePractice()
   const { midiDeviceId } = state
   const { devices: deviceList } = useMidi()
-
-  const [sections, setSections] = useState<Record<string, boolean>>({
-    view: true,
-    appearance: true,
-    play: true,
-    judgment: false,
-    autoPlay: false,
-    layout: false,
-    perf: false,
-    midi: false,
-    voices: false,
-  })
-
-  const toggleSection = (key: string) => {
-    setSections((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
+  const [activeTab, setActiveTab] = useState<TabKey>('general')
 
   useEffect(() => {
     if (midiDeviceId && !deviceList.some((dev) => dev.id === midiDeviceId)) {
@@ -75,6 +58,16 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
     dispatch({ type: 'SET_VELOCITY_JUDGMENT', enabled: false })
     dispatch({ type: 'SET_PEDAL_JUDGMENT', enabled: false })
     dispatch({ type: 'SET_NOTE_OFF_JUDGMENT', enabled: false })
+    dispatch({ type: 'SET_HIGHLIGHT_COLOR', color: '#7c3aed' })
+    dispatch({ type: 'SET_JD_PERFECT_COLOR', color: '#16a34a' })
+    dispatch({ type: 'SET_JD_GREAT_COLOR', color: '#3b82f6' })
+    dispatch({ type: 'SET_JD_GOOD_COLOR', color: '#eab308' })
+    dispatch({ type: 'SET_JD_MISS_COLOR', color: '#ef4444' })
+    dispatch({ type: 'SET_HIGHLIGHT_PAD_X', value: 60 })
+    dispatch({ type: 'SET_HIGHLIGHT_PAD_Y', value: 60 })
+    dispatch({ type: 'SET_HIGHLIGHT_STROKE_ACTIVE', value: 1.5 })
+    dispatch({ type: 'SET_HIGHLIGHT_STROKE_PREVIEW', value: 1 })
+    dispatch({ type: 'SET_JD_STROKE_WIDTH', value: 1.5 })
   }
 
   return (
@@ -85,53 +78,86 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           <button className="ctrl-btn" onClick={onClose}>X</button>
         </div>
 
+        <div className="settings-tabs">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              className={`settings-tab${activeTab === tab.key ? ' active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="settings-body">
+          <div className="settings-tab-content">
+            {activeTab === 'general' && (
+              <>
+                <div className="settings-section">
+                  <h3>View</h3>
+                  <ViewSettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Layout</h3>
+                  <LayoutSettings />
+                </div>
+              </>
+            )}
 
-          <div className="settings-section">
-            <SectionHeader expanded={sections.view} onClick={() => toggleSection('view')} title="视图" />
-            {sections.view && <ViewSettings />}
+            {activeTab === 'appearance' && (
+              <>
+                <div className="settings-section">
+                  <h3>Theme</h3>
+                  <AppearanceSettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Highlight Color</h3>
+                  <HighlightColorSettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Judgment Colors</h3>
+                  <JudgmentColorSettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Box Sizing</h3>
+                  <BoxSizeSettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Voice Colors</h3>
+                  <VoiceColorSettings />
+                </div>
+              </>
+            )}
+
+            {activeTab === 'playback' && (
+              <>
+                <div className="settings-section">
+                  <h3>Play</h3>
+                  <PlaySettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Judgment</h3>
+                  <JudgmentSettings />
+                </div>
+                <div className="settings-section">
+                  <h3>Auto Play</h3>
+                  <AutoPlaySettings />
+                </div>
+                <div className="settings-section">
+                  <h3>MIDI</h3>
+                  <MidiSettings />
+                </div>
+              </>
+            )}
+
+            {activeTab === 'advanced' && (
+              <div className="settings-section">
+                <h3>Performance</h3>
+                <PerfSettings />
+              </div>
+            )}
           </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.appearance} onClick={() => toggleSection('appearance')} title="外观" />
-            {sections.appearance && <AppearanceSettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.play} onClick={() => toggleSection('play')} title="演奏" />
-            {sections.play && <PlaySettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.judgment} onClick={() => toggleSection('judgment')} title="判定维度" />
-            {sections.judgment && <JudgmentSettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.autoPlay} onClick={() => toggleSection('autoPlay')} title="自动播放" />
-            {sections.autoPlay && <AutoPlaySettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.layout} onClick={() => toggleSection('layout')} title="布局" />
-            {sections.layout && <LayoutSettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.perf} onClick={() => toggleSection('perf')} title="性能" />
-            {sections.perf && <PerfSettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.midi} onClick={() => toggleSection('midi')} title="MIDI" />
-            {sections.midi && <MidiSettings />}
-          </div>
-
-          <div className="settings-section">
-            <SectionHeader expanded={sections.voices} onClick={() => toggleSection('voices')} title="声部颜色" />
-            {sections.voices && <VoiceColorSettings />}
-          </div>
-
         </div>
 
         <div className="settings-footer">

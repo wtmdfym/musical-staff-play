@@ -130,6 +130,16 @@ export interface PracticeState {
   documentFormat: 'musicxml' | 'mei' | null
   theme: ThemeName
   colorScheme: ColorScheme
+  highlightColor: string
+  jdPerfectColor: string
+  jdGreatColor: string
+  jdGoodColor: string
+  jdMissColor: string
+  highlightPadX: number
+  highlightPadY: number
+  highlightStrokeWidthActive: number
+  highlightStrokeWidthPreview: number
+  jdStrokeWidth: number
   layoutCommitVersion: number
 }
 
@@ -213,4 +223,14 @@ export type PracticeAction =
   | { type: 'SET_NOTE_OFF_JUDGMENT'; enabled: boolean }
   | { type: 'SET_THEME'; theme: ThemeName }
   | { type: 'SET_COLOR_SCHEME'; scheme: ColorScheme }
+  | { type: 'SET_HIGHLIGHT_COLOR'; color: string }
+  | { type: 'SET_JD_PERFECT_COLOR'; color: string }
+  | { type: 'SET_JD_GREAT_COLOR'; color: string }
+  | { type: 'SET_JD_GOOD_COLOR'; color: string }
+  | { type: 'SET_JD_MISS_COLOR'; color: string }
+  | { type: 'SET_HIGHLIGHT_PAD_X'; value: number }
+  | { type: 'SET_HIGHLIGHT_PAD_Y'; value: number }
+  | { type: 'SET_HIGHLIGHT_STROKE_ACTIVE'; value: number }
+  | { type: 'SET_HIGHLIGHT_STROKE_PREVIEW'; value: number }
+  | { type: 'SET_JD_STROKE_WIDTH'; value: number }
   | { type: 'COMMIT_LAYOUT' }

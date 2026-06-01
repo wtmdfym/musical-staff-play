@@ -84,6 +84,10 @@ export class GameLoop {
     return this._eventRegistry;
   }
 
+  get measureStartBeats(): number[] {
+    return this._score?.measures.map(m => m.startBeat) ?? [];
+  }
+
   get displayBeat(): number {
     if (!this._score) return 0;
     const elapsed = this._playbackDriver.elapsed;

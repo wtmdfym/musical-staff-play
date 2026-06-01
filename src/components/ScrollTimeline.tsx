@@ -4,7 +4,7 @@ import { getGameLoop } from '../core/GameLoop'
 import { useFpsMonitor } from '../playback/useFpsMonitor'
 import FpsDisplay from './FpsDisplay'
 
-export default function ScrollTimeline() {
+export default function ScrollTimeline({ onScrollToPosition }: { onScrollToPosition?: (beat: number) => void }) {
   const barRef = useRef<HTMLDivElement>(null)
   const { state, dispatch } = usePractice()
   const { score, scrollOffset, emptyMeasures, playState } = state
@@ -34,7 +34,9 @@ export default function ScrollTimeline() {
       getGameLoop().seekToBeat(targetBeat)
       dispatch({ type: 'SET_SCROLL_OFFSET', offset: targetBeat })
     } else {
+      getGameLoop().seekToBeat(targetBeat)
       dispatch({ type: 'SET_SCROLL_OFFSET', offset: targetBeat })
+      onScrollToPosition?.(targetBeat)
     }
   }
 

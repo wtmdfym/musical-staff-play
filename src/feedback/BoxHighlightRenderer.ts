@@ -15,6 +15,13 @@ export class BoxHighlightRenderer {
   private _previewClass = "hl-box-preview";
 
   private _om = getOverlayManager()
+  private _padX = 60
+  private _padY = 60
+
+  setPadding(padX: number, padY: number): void {
+    this._padX = padX
+    this._padY = padY
+  }
 
   update(columns: HighlightColumn[]): void {
     this._om.ensureAllGroups("hl-overlay-group");
@@ -32,12 +39,12 @@ export class BoxHighlightRenderer {
       for (const group of groups) {
         const bbox = this._om.unionBBox(group.noteIds);
         if (!bbox) continue;
-        const final = this._om.finalizeBBox(bbox);
+        const final = this._om.finalizeBBox(bbox, this._padX, this._padY);
         this._drawRect(group.overlayGroup, final, cls);
 
         const tieBoxes = this._computeTieBoxes(group);
         for (const tieBox of tieBoxes) {
-          const tfinal = this._om.finalizeBBox(tieBox);
+          const tfinal = this._om.finalizeBBox(tieBox, this._padX, this._padY);
           this._drawRect(group.overlayGroup, tfinal, cls + " hl-box-tie");
         }
       }

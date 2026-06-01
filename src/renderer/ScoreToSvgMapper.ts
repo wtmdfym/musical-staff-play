@@ -11,33 +11,43 @@ export interface MappableEvent {
   voice: number
 }
 
-export interface ScoreToSvgMapper {
-  build(flatEvents: ReadonlyArray<MappableEvent>, vrv: VerovioRenderer): Map<string, string>
+export interface ScoreToSvgMapperResult {
+  map: Map<string, string>
+  pageStartMeasures: number[]
 }
 
+export interface ScoreToSvgMapper {
+  build(flatEvents: ReadonlyArray<MappableEvent>, vrv: VerovioRenderer): ScoreToSvgMapperResult
+}
+
+const fallbackResult: ScoreToSvgMapperResult = { map: new Map(), pageStartMeasures: [] }
+
 export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
-  build(flatEvents: ReadonlyArray<MappableEvent>, vrv: VerovioRenderer): Map<string, string> {
+  build(flatEvents: ReadonlyArray<MappableEvent>, vrv: VerovioRenderer): ScoreToSvgMapperResult {
     const map = new Map<string, string>()
-    if (flatEvents.length === 0) return map
+    if (flatEvents.length === 0) return fallbackResult
 
     const svgs = vrv.renderAllSVGs()
-    if (!svgs.length) return map
+    if (!svgs.length) return fallbackResult
 
     const TIMING_TOLERANCE = 0.01
 
     const qstampMap = vrv.buildNoteQstampMap()
 
     const svgNotes: { id: string; time: number; pname: string; oct: string; staff: number; voice: number }[] = []
+    const pageStartMeasures: number[] = []
     const parser = new DOMParser()
+    let globalMeasureOffset = 0
 
     function hasClass(el: Element, cls: string): boolean {
       const cl = el.classList
       return cl ? cl.contains(cls) : false
     }
 
-    for (const svg of svgs) {
-      const doc = parser.parseFromString(svg, 'image/svg+xml')
+    for (let pageIdx = 0; pageIdx < svgs.length; pageIdx++) {
+      const doc = parser.parseFromString(svgs[pageIdx], 'image/svg+xml')
       const measures = doc.querySelectorAll('.measure')
+      pageStartMeasures.push(globalMeasureOffset)
       for (let mi = 0; mi < measures.length; mi++) {
         const measure = measures[mi]
         const staves: Element[] = []
@@ -76,6 +86,7 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
           }
         }
       }
+      globalMeasureOffset += measures.length
     }
 
     const intEvents = [...flatEvents].sort((a, b) => a.time - b.time)
@@ -150,7 +161,6 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
       }
     }
 
-    // Log unmatched
     for (const fe of flatEvents) {
       const key = `${fe.measureIndex}:${fe.staffIndex}:${fe.noteIndex}`
       if (!map.has(key)) {
@@ -158,6 +168,6 @@ export class VerovioScoreToSvgMapper implements ScoreToSvgMapper {
       }
     }
 
-    return map
+    return { map, pageStartMeasures }
   }
 }

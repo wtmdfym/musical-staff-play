@@ -22,6 +22,8 @@ export interface ScoreRendererConfig {
   renderFps: number
   highlightLeadBeats: number
   highlightRange: number
+  highlightPadX: number
+  highlightPadY: number
 }
 
 export interface ScoreRendererCallbacks {
@@ -53,8 +55,11 @@ export class ScoreRenderer {
   private _renderFps = 60
   private _highlightLeadBeats = 0.5
   private _highlightRange = 2
+  private _highlightPadX = 60
+  private _highlightPadY = 60
   private _vrvPageCount = 0
   private _rawDocument: string | null = null
+  private _pageBoundaries: number[] = []
 
   private _callbacks: ScoreRendererCallbacks | null = null
 
@@ -100,6 +105,11 @@ export class ScoreRenderer {
     if (config.renderFps !== undefined) this._renderFps = config.renderFps
     if (config.highlightLeadBeats !== undefined) this._highlightLeadBeats = config.highlightLeadBeats
     if (config.highlightRange !== undefined) this._highlightRange = config.highlightRange
+    if (config.highlightPadX !== undefined || config.highlightPadY !== undefined) {
+      this._highlightPadX = config.highlightPadX ?? this._highlightPadX
+      this._highlightPadY = config.highlightPadY ?? this._highlightPadY
+      this._highlightRenderer.setPadding(this._highlightPadX, this._highlightPadY)
+    }
 
     if (needsRender) this._renderSVG()
     if (needsReapply) this._reapplyAll()
@@ -163,6 +173,22 @@ export class ScoreRenderer {
     this._viewportPositioner.resetScroll()
   }
 
+  scrollToPosition(scrollOffset: number): void {
+    const emptyBeats = this._gl.totalWithEmpty - this._gl.totalBeats
+    const displayBeat = scrollOffset - emptyBeats
+    const nextPage = this._viewportPositioner.scrollToBeat(displayBeat, {
+      displayMode: this._displayMode,
+      displayBeat,
+      totalBeats: this._gl.totalBeats,
+      vrvPageCount: this._vrvPageCount,
+      currentPage: this._currentPage,
+      pageBoundaries: this._pageBoundaries,
+    })
+    if (nextPage !== undefined) {
+      this._callbacks?.onPageChange(nextPage)
+    }
+  }
+
   // ── private ──
 
   private _buildMapper(): void {
@@ -170,7 +196,7 @@ export class ScoreRenderer {
     const entries = this._gl.eventRegistry.all
     if (entries.length === 0) return
 
-    const svgIdMap = this._mapper.build(
+    const { map: svgIdMap, pageStartMeasures } = this._mapper.build(
       entries.map(e => ({
         measureIndex: e.measureIndex,
         staffIndex: e.staffIndex,
@@ -180,6 +206,11 @@ export class ScoreRenderer {
         voice: e.event.voice,
       })),
       this._vrv,
+    )
+
+    const measureBeats = this._gl.measureStartBeats
+    this._pageBoundaries = pageStartMeasures.map(mi =>
+      mi < measureBeats.length ? measureBeats[mi] : 0,
     )
 
     this._gl.eventRegistry.applySvgIds(svgIdMap)
@@ -240,15 +271,14 @@ export class ScoreRenderer {
     if (this._gl.state === 'playing') {
       const displayBeat = this._gl.displayBeat
       const totalBeats = this._gl.totalBeats
-      const totalWithEmpty = this._gl.totalWithEmpty
 
       const nextPage = this._viewportPositioner.tick({
         displayMode: this._displayMode,
         displayBeat,
         totalBeats,
-        totalWithEmpty,
         vrvPageCount: this._vrvPageCount,
         currentPage: this._currentPage,
+        pageBoundaries: this._pageBoundaries,
       })
 
       if (nextPage !== undefined) {

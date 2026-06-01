@@ -77,6 +77,16 @@ const initialState: PracticeState = {
   documentFormat: null,
   theme: 'ocean',
   colorScheme: 'auto',
+  highlightColor: '#7c3aed',
+  jdPerfectColor: '#16a34a',
+  jdGreatColor: '#3b82f6',
+  jdGoodColor: '#eab308',
+  jdMissColor: '#ef4444',
+  highlightPadX: 60,
+  highlightPadY: 60,
+  highlightStrokeWidthActive: 1.5,
+  highlightStrokeWidthPreview: 1,
+  jdStrokeWidth: 1.5,
   layoutCommitVersion: 0,
   ...persisted,
 }
@@ -247,6 +257,26 @@ function practiceReducer(state: PracticeState, action: PracticeAction): Practice
       return { ...state, theme: action.theme }
     case 'SET_COLOR_SCHEME':
       return { ...state, colorScheme: action.scheme }
+    case 'SET_HIGHLIGHT_COLOR':
+      return { ...state, highlightColor: action.color }
+    case 'SET_JD_PERFECT_COLOR':
+      return { ...state, jdPerfectColor: action.color }
+    case 'SET_JD_GREAT_COLOR':
+      return { ...state, jdGreatColor: action.color }
+    case 'SET_JD_GOOD_COLOR':
+      return { ...state, jdGoodColor: action.color }
+    case 'SET_JD_MISS_COLOR':
+      return { ...state, jdMissColor: action.color }
+    case 'SET_HIGHLIGHT_PAD_X':
+      return { ...state, highlightPadX: Math.max(0, Math.min(200, action.value)) }
+    case 'SET_HIGHLIGHT_PAD_Y':
+      return { ...state, highlightPadY: Math.max(0, Math.min(200, action.value)) }
+    case 'SET_HIGHLIGHT_STROKE_ACTIVE':
+      return { ...state, highlightStrokeWidthActive: Math.max(0.5, Math.min(6, action.value)) }
+    case 'SET_HIGHLIGHT_STROKE_PREVIEW':
+      return { ...state, highlightStrokeWidthPreview: Math.max(0.25, Math.min(4, action.value)) }
+    case 'SET_JD_STROKE_WIDTH':
+      return { ...state, jdStrokeWidth: Math.max(0.5, Math.min(6, action.value)) }
     case 'COMMIT_LAYOUT':
       return { ...state, layoutCommitVersion: state.layoutCommitVersion + 1 }
     default:
@@ -261,7 +291,8 @@ const PERSISTED_KEYS: (keyof PracticeState)[] = [
   'verovioPageWidth', 'verovioPageHeight', 'verovioStaffSpacing', 'verovioNoteSpacing',
   'midiEnabled', 'midiDeviceId', 'highlightMode', 'autoPlayVolume', 'autoPlayDelay',
   'velocityJudgmentEnabled', 'pedalJudgmentEnabled', 'noteOffJudgmentEnabled',
-  'theme', 'colorScheme',
+  'theme', 'colorScheme', 'highlightColor', 'jdPerfectColor', 'jdGreatColor', 'jdGoodColor', 'jdMissColor',
+  'highlightPadX', 'highlightPadY', 'highlightStrokeWidthActive', 'highlightStrokeWidthPreview', 'jdStrokeWidth',
 ]
 
 export function PracticeProvider({ children }: { children: ReactNode }) {
@@ -289,7 +320,9 @@ export function PracticeProvider({ children }: { children: ReactNode }) {
     state.verovioPageWidth, state.verovioPageHeight, state.verovioStaffSpacing, state.verovioNoteSpacing,
     state.midiEnabled, state.midiDeviceId, state.highlightMode, state.autoPlayVolume, state.autoPlayDelay,
     state.velocityJudgmentEnabled, state.pedalJudgmentEnabled, state.noteOffJudgmentEnabled,
-    state.theme, state.colorScheme,
+    state.theme, state.colorScheme, state.highlightColor, state.jdPerfectColor, state.jdGreatColor,
+    state.jdGoodColor, state.jdMissColor, state.highlightPadX, state.highlightPadY,
+    state.highlightStrokeWidthActive, state.highlightStrokeWidthPreview, state.jdStrokeWidth,
   ])
   return (
     <PracticeStateContext.Provider value={state}>

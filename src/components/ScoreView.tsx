@@ -6,6 +6,8 @@ import { ScoreRenderer } from "../renderer/ScoreRenderer"
 import { parseFromXml } from "../score/MusicxmlParser"
 import { getRecentFiles, addRecentFile } from "../data/recentFiles"
 import { loadScoreFromFile } from "../score/loadScoreFile"
+import ScrollTimeline from "./ScrollTimeline"
+import PageTimeline from "./PageTimeline"
 
 const glInstance = getGameLoop()
 
@@ -41,6 +43,8 @@ export default function ScoreView() {
     velocityJudgmentEnabled,
     pedalJudgmentEnabled,
     noteOffJudgmentEnabled,
+    highlightPadX,
+    highlightPadY,
     stats,
     layoutCommitVersion,
   } = state
@@ -145,7 +149,7 @@ export default function ScoreView() {
   }, [emptyMeasures, midiEnabled, midiDeviceId, bpmOverrideEnabled, bpmOverride, speedRatio, logicFps, autoPlay, autoPlayVolume, autoPlayDelay, velocityJudgmentEnabled, pedalJudgmentEnabled, noteOffJudgmentEnabled])
 
   useEffect(() => {
-    const key = `${displayMode}|${currentPage}|${renderFps}|${highlightLeadBeats}|${highlightRange}`
+    const key = `${displayMode}|${currentPage}|${renderFps}|${highlightLeadBeats}|${highlightRange}|${highlightPadX}|${highlightPadY}`
     if (key === prevRendererConfigKeyRef.current) return
     prevRendererConfigKeyRef.current = key
     rendererRef.current?.setConfig({
@@ -154,8 +158,10 @@ export default function ScoreView() {
       renderFps,
       highlightLeadBeats,
       highlightRange,
+      highlightPadX,
+      highlightPadY,
     })
-  }, [displayMode, currentPage, renderFps, highlightLeadBeats, highlightRange])
+  }, [displayMode, currentPage, renderFps, highlightLeadBeats, highlightRange, highlightPadX, highlightPadY])
 
   useEffect(() => {
     if (playState === 'playing') {
@@ -207,7 +213,14 @@ export default function ScoreView() {
     }
   }, [totalJudged, dispatch])
 
+  const handleScrollTimelineClick = useCallback((beat: number) => {
+    rendererRef.current?.scrollToPosition(beat)
+  }, [])
+
+  const showTimeline = score && score.measures.length > 0
+
   return (
+    <>
     <div className="score-view-container" style={{ position: "relative", overflow: "hidden", background: "var(--score-bg, #faf9f6)" }}>
       <button
         className="heatmap-icon-btn"
@@ -309,5 +322,10 @@ export default function ScoreView() {
         />
       </div>
     </div>
+    {showTimeline && (displayMode === 'page'
+      ? <PageTimeline />
+      : <ScrollTimeline onScrollToPosition={handleScrollTimelineClick} />
+    )}
+    </>
   )
 }
