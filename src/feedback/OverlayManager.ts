@@ -100,7 +100,7 @@ export class OverlayManager {
   }
 
   unionBBox(noteIds: string[]): BBox | null {
-    const id = noteIds.pop() ?? ''
+    const id = noteIds[0] ?? ''
     const el = document.getElementById(id)
     if (!(el instanceof SVGGraphicsElement)) return null
 
@@ -112,7 +112,7 @@ export class OverlayManager {
     let maxY = b.y + b.height
     const anyEl: SVGGraphicsElement = el
 
-    for (const id of noteIds) {
+    for (const id of noteIds.slice(1)) {
       const el = document.getElementById(id)
       if (!(el instanceof SVGGraphicsElement)) continue
 

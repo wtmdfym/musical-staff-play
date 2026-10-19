@@ -219,6 +219,7 @@ export class ScoreRenderer {
   private _renderSVG(): void {
     if (!this._container || !this._vrv.hasDocument) return
 
+    this._highlightRenderer.clear()
     if (this._displayMode === 'page') {
       const pageNo = Math.min(this._currentPage + 1, Math.max(1, this._vrvPageCount))
       const svg = this._vrv.renderSVG(pageNo)
