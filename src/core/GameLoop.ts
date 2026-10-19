@@ -206,10 +206,6 @@ export class GameLoop {
   }
 
   stop(): void {
-    console.log(
-      `[DEBUG-diagnose] STOP SUMMARY: ` +
-        `_logicTicks=${this._logicTickCount}`,
-    );
     this._logicTickCount = 0;
     this._playbackDriver.stop();
     this._stopLogicInterval();
@@ -283,11 +279,6 @@ export class GameLoop {
   private _tickScrollEmit(beat: number): void {
     if (Math.abs(beat - this._lastLogicDispatch) > 0.01) {
       this._lastLogicDispatch = beat;
-      if (this._logicTickCount <= 3 || this._logicTickCount % 60 === 0) {
-        console.log(
-          `[DEBUG-diagnose] _logicTick #${this._logicTickCount} dispatching SET_SCROLL_OFFSET beat=${beat.toFixed(2)}`,
-        );
-      }
       this._eventSink?.emit({ type: 'scroll-offset-changed', offset: beat });
     }
   }

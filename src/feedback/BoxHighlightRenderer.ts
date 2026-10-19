@@ -17,19 +17,31 @@ export class BoxHighlightRenderer {
   private _om = getOverlayManager()
   private _padX = 60
   private _padY = 60
+  private _lastUpdateSignature = ""
 
   setPadding(padX: number, padY: number): void {
+    if (padX === this._padX && padY === this._padY) return
     this._padX = padX
     this._padY = padY
+    this._lastUpdateSignature = ""
   }
 
   update(columns: HighlightColumn[]): void {
+    const signature = columns
+      .map((column, columnIndex) =>
+        `${columnIndex}:${column.notes.map(note =>
+          `${note.svgId}:${note.staffIndex}:${note.voice}`,
+        ).join(",")}`,
+      )
+      .join("|")
+    if (signature === this._lastUpdateSignature) return
+    this._lastUpdateSignature = signature
+
     this._om.ensureAllGroups("hl-overlay-group");
     this._checkPageSig();
 
-    if (columns.length === 0) return;
-
     this._om.clearGroups("hl-overlay-group");
+    if (columns.length === 0) return;
 
     for (let ci = 0; ci < columns.length; ci++) {
       const col = columns[ci];
@@ -52,6 +64,7 @@ export class BoxHighlightRenderer {
   }
 
   clear(): void {
+    this._lastUpdateSignature = ""
     this._om.clearGroups("hl-overlay-group");
   }
 
